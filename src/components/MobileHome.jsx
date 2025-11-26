@@ -2,12 +2,33 @@ import { useState } from 'react';
 import MobileMapView from './MobileMapView';
 import MobileAddSign from './MobileAddSign';
 import MobileArchive from './MobileArchive';
+import MobileSignDetails from './MobileSignDetails';
 
 function MobileHome({ user, syncStatus, stats, onDataChange }) {
     const [currentView, setCurrentView] = useState('home');
+    const [selectedSign, setSelectedSign] = useState(null);
+
+    const handleOpenDetails = (sign) => {
+        setSelectedSign(sign);
+        setCurrentView('details');
+    };
 
     if (currentView === 'map') {
-        return <MobileMapView onBack={() => setCurrentView('home')} />;
+        return (
+            <MobileMapView
+                onBack={() => setCurrentView('home')}
+                onOpenDetails={handleOpenDetails}
+            />
+        );
+    }
+
+    if (currentView === 'details' && selectedSign) {
+        return (
+            <MobileSignDetails
+                sign={selectedSign}
+                onBack={() => setCurrentView('map')}
+            />
+        );
     }
 
     if (currentView === 'add') {

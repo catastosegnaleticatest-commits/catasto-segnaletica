@@ -26,7 +26,70 @@ function MapController({ center, zoom }) {
     return null;
 }
 
-function MobileMapView({ onBack }) {
+// Componente per il contenuto del popup che carica la foto
+function SignPopupContent({ sign, onOpenDetails }) {
+    const [photo, setPhoto] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const loadPhoto = async () => {
+            try {
+                const photoData = await localStorageService.getPhoto(sign.id);
+                setPhoto(photoData);
+            } catch (error) {
+                console.error('Errore foto popup:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadPhoto();
+    }, [sign.id]);
+
+    return (
+        <div style={{ minWidth: '200px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>{sign.type === 'divieto' ? '🚫' : sign.type === 'obbligo' ? '🔵' : sign.type === 'pericolo' ? '⚠️' : sign.type === 'indicazione' ? 'ℹ️' : '📍'}</span>
+                <strong style={{ textTransform: 'capitalize' }}>{sign.type}</strong>
+            </div>
+
+            {loading ? (
+                <div style={{ height: '100px', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', marginBottom: '0.5rem' }}>
+                    <span className="spinner" style={{ width: '20px', height: '20px' }}></span>
+                </div>
+            ) : photo ? (
+                <div style={{ marginBottom: '0.5rem' }}>
+                    <img
+                        src={photo}
+                        alt="Segnale"
+                        style={{ width: '100%', height: '120px', objectFit: 'cover', borderRadius: '4px' }}
+                    />
+                </div>
+            ) : null}
+
+            <div style={{ marginBottom: '0.5rem' }}>
+                <span className={`badge ${sign.status === 'ottimo' || sign.status === 'buono' ? 'badge-success' : sign.status === 'discreto' ? 'badge-warning' : 'badge-danger'}`}>
+                    {sign.status}
+                </span>
+            </div>
+
+            {sign.notes && (
+                <div style={{ fontSize: '0.75rem', color: 'var(--gray-600)', marginBottom: '0.5rem', maxHeight: '40px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {sign.notes}
+                </div>
+            )}
+
+            <button
+                className="btn btn-sm btn-primary"
+                style={{ width: '100%', fontSize: '0.875rem', padding: '0.4rem' }}
+                onClick={() => onOpenDetails(sign)}
+            >
+                👁️ Vedi Dettagli
+            </button>
+        </div>
+    );
+}
+
+function MobileMapView({ onBack, onOpenDetails }) {
     const [signs, setSigns] = useState([]);
     const [filteredSigns, setFilteredSigns] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -191,21 +254,7 @@ function MobileMapView({ onBack }) {
                                 opacity={activeSignId === sign.id ? 1 : 0.8}
                             >
                                 <Popup>
-                                    <div style={{ minWidth: '200px' }}>
-                                        <strong>{getSignIcon(sign.type)} {sign.type.toUpperCase()}</strong>
-                                        <br />
-                                        <span className={`badge ${getStatusBadge(sign.status)}`}>
-                                            {sign.status}
-                                        </span>
-                                        <br />
-                                        <small style={{ fontSize: '0.75rem', color: 'var(--gray-600)' }}>
-                                            {sign.notes || 'Nessuna nota'}
-                                        </small>
-                                        <br />
-                                        <small style={{ fontSize: '0.7rem', color: 'var(--gray-500)' }}>
-                                            {sign.latitude.toFixed(6)}, {sign.longitude.toFixed(6)}
-                                        </small>
-                                    </div>
+                                    <SignPopupContent sign={sign} onOpenDetails={onOpenDetails} />
                                 </Popup>
                             </Marker>
                         ))}
