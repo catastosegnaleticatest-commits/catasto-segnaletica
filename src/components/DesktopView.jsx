@@ -228,13 +228,21 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
                                             <td style={{ padding: '0.75rem' }}>
                                                 {sign.synced ? '✅' : '⏳'}
                                             </td>
-                                            <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                                            <td style={{ padding: '0.75rem', textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                <button
+                                                    className="btn btn-sm btn-primary"
+                                                    onClick={() => handleOpenDetails(sign)}
+                                                    title="Vedi Dettagli"
+                                                >
+                                                    👁️
+                                                </button>
                                                 <button
                                                     className="btn btn-sm"
                                                     onClick={() => handleDeleteSign(sign.id)}
                                                     style={{ background: 'var(--danger)', color: 'white' }}
+                                                    title="Elimina"
                                                 >
-                                                    🗑️ Elimina
+                                                    🗑️
                                                 </button>
                                             </td>
                                         </tr>
