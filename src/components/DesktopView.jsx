@@ -80,80 +80,84 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
     }
 
     return (
-        <div className="container">
-            <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                    <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem' }}>
-                        💻 Gestione Desktop
+    return (
+        <div className="container" style={{ maxWidth: '100%', padding: '1rem' }}>
+            {/* Compact Header & Tabs */}
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1rem',
+                background: 'white',
+                padding: '0.75rem 1rem',
+                borderRadius: 'var(--border-radius)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        💻 Catasto
                     </h2>
-                    <p style={{ color: 'var(--gray-600)' }}>
-                        Visualizza e gestisci il catasto completo
-                    </p>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: '600', fontSize: '1.125rem' }}>
-                        Ciao, {user?.username || 'Utente'} 👋
-                    </div>
-                    <div className="badge badge-secondary" style={{ marginTop: '0.25rem', display: 'inline-block' }}>
-                        {user?.role?.toUpperCase() || 'GUEST'}
-                    </div>
-                </div>
-            </div>
 
-            {/* Stats */}
-            {stats && (
-                <div className="stats-grid">
-                    <div className="stat-card">
-                        <div className="stat-value">{stats.local?.totalSigns || 0}</div>
-                        <div className="stat-label">Segnali Totali</div>
-                    </div>
-                    <div className="stat-card">
-                        <div className="stat-value">{stats.local?.totalInterventions || 0}</div>
-                        <div className="stat-label">Interventi</div>
-                    </div>
-                    <div className="stat-card">
-                        <div className="stat-value" style={{ color: stats.local?.pendingSync > 0 ? 'var(--warning)' : 'var(--success)' }}>
-                            {stats.local?.pendingSync || 0}
-                        </div>
-                        <div className="stat-label">Da Sincronizzare</div>
-                    </div>
-                    <div className="stat-card">
-                        <div className="stat-value" style={{ color: syncStatus.online ? 'var(--success)' : 'var(--danger)' }}>
-                            {syncStatus.online ? '✅' : '❌'}
-                        </div>
-                        <div className="stat-label">Stato Server</div>
+                    <div className="tabs" style={{ margin: 0, gap: '0.5rem' }}>
+                        <button
+                            className={`tab ${activeTab === 'map' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('map')}
+                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}
+                        >
+                            🗺️ Mappa
+                        </button>
+                        <button
+                            className={`tab ${activeTab === 'archive' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('archive')}
+                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}
+                        >
+                            📋 Archivio
+                        </button>
+                        <button
+                            className={`tab ${activeTab === 'interventions' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('interventions')}
+                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}
+                        >
+                            🔧 Interventi
+                        </button>
+                        {user?.role === 'admin' && (
+                            <button
+                                className={`tab ${activeTab === 'users' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('users')}
+                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}
+                            >
+                                👥 Utenti
+                            </button>
+                        )}
                     </div>
                 </div>
-            )}
 
-            {/* Tabs */}
-            <div className="tabs">
-                <button
-                    className={`tab ${activeTab === 'map' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('map')}
-                >
-                    🗺️ Mappa
-                </button>
-                <button
-                    className={`tab ${activeTab === 'archive' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('archive')}
-                >
-                    📋 Archivio
-                </button>
-                <button
-                    className={`tab ${activeTab === 'interventions' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('interventions')}
-                >
-                    🔧 Interventi
-                </button>
-                {user?.role === 'admin' && (
-                    <button
-                        className={`tab ${activeTab === 'users' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('users')}
-                    >
-                        👥 Utenti
-                    </button>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    {/* Mini Stats */}
+                    {stats && (
+                        <div style={{ display: 'flex', gap: '1rem', marginRight: '1rem', borderRight: '1px solid #eee', paddingRight: '1rem' }}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontWeight: '700', fontSize: '1rem' }}>{stats.local?.totalSigns || 0}</div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--gray-600)' }}>Segnali</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontWeight: '700', fontSize: '1rem', color: stats.local?.pendingSync > 0 ? 'var(--warning)' : 'var(--success)' }}>
+                                    {stats.local?.pendingSync || 0}
+                                </div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--gray-600)' }}>Sync</div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div style={{ textAlign: 'right', lineHeight: '1.2' }}>
+                        <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>
+                            {user?.username || 'Utente'}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>
+                            {user?.role?.toUpperCase()}
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Details Tab (Hidden from nav, activated by map) */}
