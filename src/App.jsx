@@ -12,9 +12,10 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [view, setView] = useState('mobile'); // 'mobile' o 'desktop'
-  const [syncStatus, setSyncStatus] = useState({ online: false, syncing: false });
+  const [syncStatus, setSyncStatus] = useState({ online: false, syncing: false, lastError: null });
   const [stats, setStats] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     // Verifica se c'è un token salvato
@@ -47,9 +48,15 @@ function App() {
       console.log('Sync event:', event, data);
 
       if (event === 'sync:start' || event === 'upload:start' || event === 'download:start') {
-        setSyncStatus(prev => ({ ...prev, syncing: true }));
-      } else if (event === 'sync:complete' || event === 'sync:error') {
-        setSyncStatus(prev => ({ ...prev, syncing: false }));
+        setSyncStatus(prev => ({ ...prev, syncing: true, lastError: null }));
+      } else if (event === 'sync:complete') {
+        setSyncStatus(prev => ({ ...prev, syncing: false, lastError: null }));
+        showToast('✅ Sincronizzazione completata!', 'success');
+        loadStats();
+      } else if (event === 'sync:error') {
+        const errorMsg = data?.message || 'Errore sconosciuto';
+        setSyncStatus(prev => ({ ...prev, syncing: false, lastError: errorMsg }));
+        showToast(`❌ Errore sync: ${errorMsg}`, 'error');
         loadStats();
       }
     });
@@ -72,6 +79,11 @@ function App() {
   const loadStats = async () => {
     const syncStats = await syncService.getSyncStats();
     setStats(syncStats);
+  };
+
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
   };
 
   const handleLogin = async (username, password) => {
@@ -100,7 +112,7 @@ function App() {
       await syncService.fullSync();
     } catch (error) {
       console.error('Errore sincronizzazione:', error);
-      alert('Errore durante la sincronizzazione. Verifica la connessione al server.');
+      // Il toast viene già mostrato dal listener sync:error
     }
   };
 
@@ -189,6 +201,28 @@ function App() {
           />
         )}
       </main>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            background: toast.type === 'error' ? '#ef4444' : toast.type === 'success' ? '#10b981' : '#3b82f6',
+            color: 'white',
+            padding: '1rem 1.5rem',
+            borderRadius: 'var(--border-radius)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            zIndex: 10000,
+            maxWidth: '400px',
+            fontWeight: '600',
+            animation: 'slideIn 0.3s ease-out'
+          }}
+        >
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }
