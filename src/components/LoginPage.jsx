@@ -89,18 +89,7 @@ function LoginPage({ onLogin }) {
                     </button>
                 </form>
 
-                <div style={{
-                    marginTop: '1.5rem',
-                    padding: '1rem',
-                    background: 'var(--gray-100)',
-                    borderRadius: 'var(--border-radius-sm)',
-                    fontSize: '0.875rem',
-                    color: 'var(--gray-600)'
-                }}>
-                    <strong>Credenziali di default:</strong><br />
-                    Username: <code>admin</code><br />
-                    Password: <code>admin123</code>
-                </div>
+
             </div>
         </div>
     );
