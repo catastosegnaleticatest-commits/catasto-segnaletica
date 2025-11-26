@@ -217,7 +217,12 @@ app.delete('/api/users/:id', authenticateToken, (req, res) => {
 
 // Ottieni tutti i segnali
 app.get('/api/signs', authenticateToken, (req, res) => {
-    const signs = db.prepare('SELECT * FROM signs ORDER BY created_at DESC').all();
+    const signs = db.prepare(`
+        SELECT s.*, u.username as creator_username 
+        FROM signs s 
+        LEFT JOIN users u ON s.created_by = u.id 
+        ORDER BY s.created_at DESC
+    `).all();
     res.json(signs);
 });
 
