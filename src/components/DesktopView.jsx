@@ -1,17 +1,7 @@
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
 import localStorageService from '../services/localStorage';
 import UserManagement from './UserManagement';
-
-// Fix per icone Leaflet
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+import MapView from './MapView';
 
 function DesktopView({ user, syncStatus, stats, onDataChange }) {
     const [activeTab, setActiveTab] = useState('map');
@@ -161,41 +151,9 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
 
             {/* Map Tab */}
             {activeTab === 'map' && (
-                <div className="card">
-                    <div className="card-header">
-                        <h3 className="card-title">Mappa Segnali</h3>
-                    </div>
+                <div className="card" style={{ height: '600px', padding: 0, overflow: 'hidden' }}>
                     {signs.length > 0 ? (
-                        <div className="map-container">
-                            <MapContainer
-                                center={[signs[0].latitude, signs[0].longitude]}
-                                zoom={13}
-                                style={{ height: '100%', width: '100%' }}
-                            >
-                                <TileLayer
-                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                                />
-                                {signs.map((sign) => (
-                                    <Marker
-                                        key={sign.id}
-                                        position={[sign.latitude, sign.longitude]}
-                                    >
-                                        <Popup>
-                                            <div style={{ minWidth: '200px' }}>
-                                                <strong>{getSignIcon(sign.type)} {sign.type.toUpperCase()}</strong>
-                                                <br />
-                                                <span className={`badge ${getStatusBadge(sign.status)}`}>
-                                                    {sign.status}
-                                                </span>
-                                                <br />
-                                                <small>{sign.notes || 'Nessuna nota'}</small>
-                                            </div>
-                                        </Popup>
-                                    </Marker>
-                                ))}
-                            </MapContainer>
-                        </div>
+                        <MapView signs={signs} onSignClick={(sign) => console.log('Selected sign:', sign)} />
                     ) : (
                         <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--gray-500)' }}>
                             Nessun segnale presente
