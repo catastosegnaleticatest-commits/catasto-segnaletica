@@ -1,0 +1,192 @@
+// Servizio per gestire la comunicazione con il backend
+import { io } from 'socket.io-client';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+console.log('🔗 API URL configurato:', API_URL);
+
+class ApiService {
+    constructor() {
+        this.token = localStorage.getItem('token');
+        this.socket = null;
+        this.isServerOnline = false;
+    }
+
+    // Connetti WebSocket
+    connectSocket() {
+        if (this.socket) return this.socket;
+
+        this.socket = io(API_URL, {
+            auth: { token: this.token },
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 5
+        });
+
+        this.socket.on('connect', () => {
+            console.log('✅ Connesso al server');
+            this.isServerOnline = true;
+        });
+
+        this.socket.on('disconnect', () => {
+            console.log('❌ Disconnesso dal server');
+            this.isServerOnline = false;
+        });
+
+        return this.socket;
+    }
+
+    // Disconnetti WebSocket
+    disconnectSocket() {
+        if (this.socket) {
+            this.socket.disconnect();
+            this.socket = null;
+        }
+    }
+
+    // Headers per richieste autenticate
+    getHeaders() {
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.token}`
+        };
+    }
+
+    // Salva token
+    setToken(token) {
+        this.token = token;
+        localStorage.setItem('token', token);
+    }
+
+    // Rimuovi token
+    clearToken() {
+        this.token = null;
+        localStorage.removeItem('token');
+        this.disconnectSocket();
+    }
+
+    // === AUTH ===
+    async login(username, password) {
+        const response = await fetch(`${API_URL}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Errore di login');
+        }
+
+        const data = await response.json();
+        this.setToken(data.token);
+        return data;
+    }
+
+    async register(username, password, role) {
+        const response = await fetch(`${API_URL}/api/auth/register`, {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify({ username, password, role })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Errore di registrazione');
+        }
+
+        return await response.json();
+    }
+
+    // === SIGNS ===
+    async getSigns() {
+        const response = await fetch(`${API_URL}/api/signs`, {
+            headers: this.getHeaders()
+        });
+
+        if (!response.ok) throw new Error('Errore nel caricamento dei segnali');
+        return await response.json();
+    }
+
+    async getSign(id) {
+        const response = await fetch(`${API_URL}/api/signs/${id}`, {
+            headers: this.getHeaders()
+        });
+
+        if (!response.ok) throw new Error('Segnale non trovato');
+        return await response.json();
+    }
+
+    async createSign(signData) {
+        const response = await fetch(`${API_URL}/api/signs`, {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify(signData)
+        });
+
+        if (!response.ok) throw new Error('Errore nella creazione del segnale');
+        return await response.json();
+    }
+
+    async updateSign(id, signData) {
+        const response = await fetch(`${API_URL}/api/signs/${id}`, {
+            method: 'PUT',
+            headers: this.getHeaders(),
+            body: JSON.stringify(signData)
+        });
+
+        if (!response.ok) throw new Error('Errore nell\'aggiornamento del segnale');
+        return await response.json();
+    }
+
+    async deleteSign(id) {
+        const response = await fetch(`${API_URL}/api/signs/${id}`, {
+            method: 'DELETE',
+            headers: this.getHeaders()
+        });
+
+        if (!response.ok) throw new Error('Errore nell\'eliminazione del segnale');
+        return await response.json();
+    }
+
+    // Ottieni URL foto
+    getPhotoUrl(signId) {
+        return `${API_URL}/api/signs/${signId}/photo?token=${this.token}`;
+    }
+
+    // === INTERVENTIONS ===
+    async getInterventions() {
+        const response = await fetch(`${API_URL}/api/interventions`, {
+            headers: this.getHeaders()
+        });
+
+        if (!response.ok) throw new Error('Errore nel caricamento degli interventi');
+        return await response.json();
+    }
+
+    async createIntervention(interventionData) {
+        const response = await fetch(`${API_URL}/api/interventions`, {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify(interventionData)
+        });
+
+        if (!response.ok) throw new Error('Errore nella creazione dell\'intervento');
+        return await response.json();
+    }
+
+    // === STATUS ===
+    async getServerStatus() {
+        try {
+            const response = await fetch(`${API_URL}/api/status`);
+            if (!response.ok) throw new Error('Server offline');
+            const data = await response.json();
+            this.isServerOnline = data.online;
+            return data;
+        } catch (error) {
+            this.isServerOnline = false;
+            throw error;
+        }
+    }
+}
+
+export default new ApiService();
