@@ -46,16 +46,45 @@ function MobileHome({ user, syncStatus, stats, onDataChange }) {
 
             {/* Stats Cards */}
             {stats && (
-                <div className="stats-grid" style={{ marginBottom: '2rem' }}>
-                    <div className="stat-card">
-                        <div className="stat-value">{stats.local?.totalSigns || 0}</div>
-                        <div className="stat-label">Segnali</div>
+                <div style={{
+                    display: 'flex',
+                    gap: '0.75rem',
+                    marginBottom: '1.5rem',
+                    justifyContent: 'center'
+                }}>
+                    <div style={{
+                        background: 'white',
+                        padding: '0.75rem 1rem',
+                        borderRadius: 'var(--border-radius)',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                        textAlign: 'center',
+                        flex: 1
+                    }}>
+                        <div style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--primary)' }}>
+                            {stats.local?.totalSigns || 0}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--gray-600)', marginTop: '0.25rem' }}>
+                            Segnali
+                        </div>
                     </div>
-                    <div className="stat-card">
-                        <div className="stat-value" style={{ color: stats.local?.pendingSync > 0 ? 'var(--warning)' : 'var(--success)' }}>
+                    <div style={{
+                        background: 'white',
+                        padding: '0.75rem 1rem',
+                        borderRadius: 'var(--border-radius)',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                        textAlign: 'center',
+                        flex: 1
+                    }}>
+                        <div style={{
+                            fontSize: '1.5rem',
+                            fontWeight: '700',
+                            color: stats.local?.pendingSync > 0 ? 'var(--warning)' : 'var(--success)'
+                        }}>
                             {stats.local?.pendingSync || 0}
                         </div>
-                        <div className="stat-label">Da Sync</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--gray-600)', marginTop: '0.25rem' }}>
+                            Da Sync
+                        </div>
                     </div>
                 </div>
             )}
