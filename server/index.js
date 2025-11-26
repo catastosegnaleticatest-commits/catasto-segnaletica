@@ -121,7 +121,12 @@ function decryptPhoto(encryptedData, ivHex) {
 // Middleware autenticazione
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    let token = authHeader && authHeader.split(' ')[1];
+
+    // Supporto per token in query string (es. per immagini)
+    if (!token && req.query.token) {
+        token = req.query.token;
+    }
 
     if (!token) return res.sendStatus(401);
 

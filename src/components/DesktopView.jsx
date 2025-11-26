@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import localStorageService from '../services/localStorage';
 import UserManagement from './UserManagement';
 import MapView from './MapView';
+import DesktopSignDetails from './DesktopSignDetails';
 
 function DesktopView({ user, syncStatus, stats, onDataChange }) {
     const [activeTab, setActiveTab] = useState('map');
     const [signs, setSigns] = useState([]);
     const [interventions, setInterventions] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [selectedSign, setSelectedSign] = useState(null);
 
     useEffect(() => {
         loadData();
@@ -39,6 +41,11 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
             console.error('Errore eliminazione segnale:', error);
             alert('Errore eliminazione segnale: ' + error.message);
         }
+    };
+
+    const handleOpenDetails = (sign) => {
+        setSelectedSign(sign);
+        setActiveTab('details');
     };
 
     const getSignIcon = (type) => {
@@ -149,11 +156,23 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
                 )}
             </div>
 
+            {/* Details Tab (Hidden from nav, activated by map) */}
+            {activeTab === 'details' && selectedSign && (
+                <DesktopSignDetails
+                    sign={selectedSign}
+                    onBack={() => setActiveTab('map')}
+                />
+            )}
+
             {/* Map Tab */}
             {activeTab === 'map' && (
                 <div className="card" style={{ height: '600px', padding: 0, overflow: 'hidden' }}>
                     {signs.length > 0 ? (
-                        <MapView signs={signs} onSignClick={(sign) => console.log('Selected sign:', sign)} />
+                        <MapView
+                            signs={signs}
+                            onSignClick={(sign) => console.log('Selected sign:', sign)}
+                            onOpenDetails={handleOpenDetails}
+                        />
                     ) : (
                         <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--gray-500)' }}>
                             Nessun segnale presente

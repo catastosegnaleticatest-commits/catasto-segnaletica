@@ -2,6 +2,8 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { useEffect, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import localStorageService from '../services/localStorage';
+import apiService from '../services/api';
 
 // Fix per icone marker di default in Leaflet con Webpack/Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -25,7 +27,79 @@ function MapBounds({ signs }) {
     return null;
 }
 
-function MapView({ signs, onSignClick }) {
+// Componente Popup con foto
+function SignPopupContent({ sign, onOpenDetails }) {
+    const [photo, setPhoto] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const loadPhoto = async () => {
+            try {
+                // Prima prova da locale
+                const localPhoto = await localStorageService.getPhoto(sign.id);
+                if (localPhoto) {
+                    setPhoto(localPhoto);
+                } else {
+                    // Se non c'è, usa URL server
+                    setPhoto(apiService.getPhotoUrl(sign.id));
+                }
+            } catch (error) {
+                console.error('Errore foto popup:', error);
+                setPhoto(apiService.getPhotoUrl(sign.id));
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadPhoto();
+    }, [sign.id]);
+
+    return (
+        <div style={{ minWidth: '220px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '1.25rem' }}>{sign.type === 'divieto' ? '🚫' : sign.type === 'obbligo' ? '🔵' : sign.type === 'pericolo' ? '⚠️' : sign.type === 'indicazione' ? 'ℹ️' : '📍'}</span>
+                <strong style={{ textTransform: 'capitalize', fontSize: '1rem' }}>{sign.type}</strong>
+            </div>
+
+            {loading ? (
+                <div style={{ height: '120px', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', marginBottom: '0.5rem' }}>
+                    <span className="spinner" style={{ width: '20px', height: '20px' }}></span>
+                </div>
+            ) : photo ? (
+                <div style={{ marginBottom: '0.5rem' }}>
+                    <img
+                        src={photo}
+                        alt="Segnale"
+                        style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '4px' }}
+                        onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.style.display = 'none';
+                        }}
+                    />
+                </div>
+            ) : null}
+
+            <div style={{ marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                <span className={`badge ${sign.status === 'ottimo' || sign.status === 'buono' ? 'badge-success' : sign.status === 'discreto' ? 'badge-warning' : 'badge-danger'}`}>
+                    {sign.status}
+                </span>
+            </div>
+
+            <div style={{ fontSize: '0.8rem', color: 'var(--gray-600)', marginBottom: '0.75rem' }}>
+                {sign.latitude.toFixed(6)}, {sign.longitude.toFixed(6)}
+            </div>
+
+            <button
+                className="btn btn-sm btn-primary"
+                style={{ width: '100%', fontSize: '0.875rem', padding: '0.4rem' }}
+                onClick={() => onOpenDetails(sign)}
+            >
+                👁️ Vedi Dettagli
+            </button>
+        </div>
+    );
+}
+
+function MapView({ signs, onSignClick, onOpenDetails }) {
     const [selectedSign, setSelectedSign] = useState(null);
 
     // Centro Italia come default se non ci sono segnali
@@ -94,34 +168,7 @@ function MapView({ signs, onSignClick }) {
                                 }}
                             >
                                 <Popup>
-                                    <div style={{ minWidth: '200px' }}>
-                                        <h3 style={{
-                                            margin: '0 0 0.5rem 0',
-                                            fontSize: '1rem',
-                                            fontWeight: '700'
-                                        }}>
-                                            {sign.type.charAt(0).toUpperCase() + sign.type.slice(1)}
-                                        </h3>
-                                        <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                                            <p style={{ margin: '0.25rem 0' }}>
-                                                <strong>Stato:</strong> {sign.status}
-                                            </p>
-                                            <p style={{ margin: '0.25rem 0' }}>
-                                                <strong>Coordinate:</strong><br />
-                                                {sign.latitude.toFixed(6)}, {sign.longitude.toFixed(6)}
-                                            </p>
-                                            {sign.notes && (
-                                                <p style={{ margin: '0.25rem 0' }}>
-                                                    <strong>Note:</strong> {sign.notes}
-                                                </p>
-                                            )}
-                                            {sign.installation_date && (
-                                                <p style={{ margin: '0.25rem 0' }}>
-                                                    <strong>Installato:</strong> {new Date(sign.installation_date).toLocaleDateString('it-IT')}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
+                                    <SignPopupContent sign={sign} onOpenDetails={onOpenDetails} />
                                 </Popup>
                             </Marker>
                         ))}
