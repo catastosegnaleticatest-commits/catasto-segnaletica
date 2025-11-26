@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import MobileMapView from './MobileMapView';
 import MobileAddSign from './MobileAddSign';
+import MobileArchive from './MobileArchive';
 
 function MobileHome({ user, syncStatus, stats, onDataChange }) {
     const [currentView, setCurrentView] = useState('home');
@@ -15,6 +16,16 @@ function MobileHome({ user, syncStatus, stats, onDataChange }) {
                 user={user}
                 syncStatus={syncStatus}
                 stats={stats}
+                onDataChange={onDataChange}
+                onBack={() => setCurrentView('home')}
+            />
+        );
+    }
+
+    if (currentView === 'archive') {
+        return (
+            <MobileArchive
+                user={user}
                 onDataChange={onDataChange}
                 onBack={() => setCurrentView('home')}
             />
@@ -83,6 +94,23 @@ function MobileHome({ user, syncStatus, stats, onDataChange }) {
                 >
                     <span style={{ fontSize: '1.5rem' }}>🗺️</span>
                     <span>Visualizza Mappa</span>
+                </button>
+
+                <button
+                    className="btn btn-secondary"
+                    onClick={() => setCurrentView('archive')}
+                    style={{
+                        width: '100%',
+                        padding: '1.5rem',
+                        fontSize: '1.125rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.75rem'
+                    }}
+                >
+                    <span style={{ fontSize: '1.5rem' }}>📋</span>
+                    <span>Archivio Segnali</span>
                 </button>
             </div>
 
