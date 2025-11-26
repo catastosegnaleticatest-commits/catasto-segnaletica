@@ -194,6 +194,7 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
                                     <tr style={{ borderBottom: '2px solid var(--gray-200)', textAlign: 'left' }}>
                                         <th style={{ padding: '0.75rem' }}>Tipo</th>
                                         <th style={{ padding: '0.75rem' }}>Stato</th>
+                                        <th style={{ padding: '0.75rem' }}>Utente</th>
                                         <th style={{ padding: '0.75rem' }}>Posizione</th>
                                         <th style={{ padding: '0.75rem' }}>Data</th>
                                         <th style={{ padding: '0.75rem' }}>Note</th>
@@ -211,6 +212,9 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
                                                 <span className={`badge ${getStatusBadge(sign.status)}`}>
                                                     {sign.status}
                                                 </span>
+                                            </td>
+                                            <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
+                                                👤 {sign.creator_username || 'N/D'}
                                             </td>
                                             <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
                                                 {sign.latitude.toFixed(4)}, {sign.longitude.toFixed(4)}
