@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import localStorageService from '../services/localStorage';
@@ -12,6 +12,20 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
+// Componente per controllare la mappa programmaticamente
+function MapController({ center, zoom }) {
+    const map = useMap();
+    useEffect(() => {
+        if (center) {
+            map.flyTo(center, zoom, {
+                animate: true,
+                duration: 1.5
+            });
+        }
+    }, [center, zoom, map]);
+    return null;
+}
+
 function MobileMapView({ onBack }) {
     const [signs, setSigns] = useState([]);
     const [filteredSigns, setFilteredSigns] = useState([]);
@@ -19,6 +33,8 @@ function MobileMapView({ onBack }) {
     const [selectedType, setSelectedType] = useState('all');
     const [loading, setLoading] = useState(true);
     const [mapCenter, setMapCenter] = useState([45.4642, 9.1900]); // Milano default
+    const [mapZoom, setMapZoom] = useState(13);
+    const [activeSignId, setActiveSignId] = useState(null);
 
     const signTypes = [
         { value: 'all', label: '🔍 Tutti' },
@@ -71,6 +87,15 @@ function MobileMapView({ onBack }) {
         }
 
         setFilteredSigns(filtered);
+    };
+
+    const handleSignClick = (sign) => {
+        setMapCenter([sign.latitude, sign.longitude]);
+        setMapZoom(18); // Zoom molto vicino
+        setActiveSignId(sign.id);
+
+        // Scrolla alla mappa
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const getSignIcon = (type) => {
@@ -148,20 +173,22 @@ function MobileMapView({ onBack }) {
 
             {/* Mappa */}
             {filteredSigns.length > 0 ? (
-                <div className="map-container" style={{ height: '400px', marginBottom: '1rem' }}>
+                <div className="map-container" style={{ height: '400px', marginBottom: '1rem', borderRadius: 'var(--border-radius)', overflow: 'hidden' }}>
                     <MapContainer
                         center={mapCenter}
-                        zoom={15}
+                        zoom={mapZoom}
                         style={{ height: '100%', width: '100%' }}
                     >
                         <TileLayer
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                         />
+                        <MapController center={mapCenter} zoom={mapZoom} />
                         {filteredSigns.map((sign) => (
                             <Marker
                                 key={sign.id}
                                 position={[sign.latitude, sign.longitude]}
+                                opacity={activeSignId === sign.id ? 1 : 0.8}
                             >
                                 <Popup>
                                     <div style={{ minWidth: '200px' }}>
@@ -200,11 +227,14 @@ function MobileMapView({ onBack }) {
                         {filteredSigns.map((sign) => (
                             <div
                                 key={sign.id}
+                                onClick={() => handleSignClick(sign)}
                                 style={{
                                     padding: '0.75rem',
-                                    background: 'var(--gray-50)',
+                                    background: activeSignId === sign.id ? '#eff6ff' : 'var(--gray-50)',
                                     borderRadius: 'var(--border-radius-sm)',
-                                    borderLeft: '4px solid var(--primary)'
+                                    borderLeft: `4px solid ${activeSignId === sign.id ? 'var(--primary)' : '#cbd5e1'}`,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease'
                                 }}
                             >
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
@@ -219,6 +249,11 @@ function MobileMapView({ onBack }) {
                                 <div style={{ fontSize: '0.75rem', color: 'var(--gray-500)', marginTop: '0.25rem' }}>
                                     📍 {sign.latitude.toFixed(4)}, {sign.longitude.toFixed(4)}
                                 </div>
+                                {activeSignId === sign.id && (
+                                    <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--primary)', fontWeight: '600' }}>
+                                        👁️ Visualizzato su mappa
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
