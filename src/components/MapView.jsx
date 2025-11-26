@@ -72,7 +72,7 @@ function SignPopupContent({ sign, onOpenDetails }) {
                         style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '4px' }}
                         onError={(e) => {
                             e.target.onerror = null;
-                            e.target.style.display = 'none';
+                            e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KIDxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNmM2Y0ZjYiLz4KIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiM2YjcyODAiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkZvdG8gbm9uIGRpc3BvbmliaWxlPC90ZXh0Pgo8L3N2Zz4=';
                         }}
                     />
                 </div>

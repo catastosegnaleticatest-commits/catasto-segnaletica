@@ -293,17 +293,36 @@ app.delete('/api/signs/:id', authenticateToken, (req, res) => {
 
 // Ottieni foto decrittografata
 app.get('/api/signs/:id/photo', authenticateToken, (req, res) => {
+    console.log(`📸 Richiesta foto per segnale ${req.params.id}`);
+
     const sign = db.prepare('SELECT photo_path FROM signs WHERE id = ?').get(req.params.id);
 
-    if (!sign || !sign.photo_path || !fs.existsSync(sign.photo_path)) {
-        return res.status(404).json({ error: 'Foto non trovata' });
+    if (!sign) {
+        console.log('❌ Segnale non trovato nel DB');
+        return res.status(404).json({ error: 'Segnale non trovato' });
     }
 
-    const encrypted = JSON.parse(fs.readFileSync(sign.photo_path, 'utf8'));
-    const decrypted = decryptPhoto(encrypted.data, encrypted.iv);
+    if (!sign.photo_path) {
+        console.log('❌ Path foto mancante nel DB');
+        return res.status(404).json({ error: 'Foto non presente' });
+    }
 
-    res.set('Content-Type', 'image/jpeg');
-    res.send(decrypted);
+    if (!fs.existsSync(sign.photo_path)) {
+        console.log(`❌ File non trovato su disco: ${sign.photo_path}`);
+        return res.status(404).json({ error: 'File foto non trovato' });
+    }
+
+    try {
+        const encrypted = JSON.parse(fs.readFileSync(sign.photo_path, 'utf8'));
+        const decrypted = decryptPhoto(encrypted.data, encrypted.iv);
+
+        console.log('✅ Foto decrittografata e inviata');
+        res.set('Content-Type', 'image/jpeg');
+        res.send(decrypted);
+    } catch (error) {
+        console.error('❌ Errore decrittografia:', error);
+        res.status(500).json({ error: 'Errore decrittografia' });
+    }
 });
 
 // Interventi
