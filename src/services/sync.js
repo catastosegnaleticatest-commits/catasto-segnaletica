@@ -77,6 +77,8 @@ class SyncService {
 
             const queue = await localStorageService.getSyncQueue();
             let uploaded = 0;
+            let failed = 0;
+            const errors = [];
 
             for (const item of queue) {
                 try {
@@ -99,13 +101,21 @@ class SyncService {
                     await localStorageService.markSyncQueueProcessed(item.id);
                     uploaded++;
                 } catch (error) {
+                    failed++;
+                    const errorMsg = `${item.tableName} (${item.operation}): ${error.message}`;
+                    errors.push(errorMsg);
                     console.error('Errore sincronizzazione item:', item, error);
                     // Continua con il prossimo item
                 }
             }
 
-            this.notifySyncEvent('upload:complete', { uploaded });
-            return { success: true, uploaded };
+            if (failed > 0) {
+                this.notifySyncEvent('upload:partial', { uploaded, failed, errors });
+            } else {
+                this.notifySyncEvent('upload:complete', { uploaded });
+            }
+
+            return { success: true, uploaded, failed, errors };
         } catch (error) {
             this.notifySyncEvent('upload:error', error);
             throw error;

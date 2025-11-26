@@ -53,6 +53,11 @@ function App() {
         setSyncStatus(prev => ({ ...prev, syncing: false, lastError: null }));
         showToast('✅ Sincronizzazione completata!', 'success');
         loadStats();
+      } else if (event === 'upload:partial') {
+        setSyncStatus(prev => ({ ...prev, syncing: false }));
+        const errorMsg = `⚠️ Sync parziale: ${data.uploaded} ok, ${data.failed} falliti. Errori: ${data.errors[0]}`;
+        showToast(errorMsg, 'error');
+        loadStats();
       } else if (event === 'sync:error') {
         const errorMsg = data?.message || 'Errore sconosciuto';
         setSyncStatus(prev => ({ ...prev, syncing: false, lastError: errorMsg }));
