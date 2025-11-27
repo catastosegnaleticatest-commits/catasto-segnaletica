@@ -245,6 +245,52 @@ app.get('/api/users', authenticateToken, async (req, res) => {
     }
 });
 
+app.put('/api/users/:id', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Non autorizzato' });
+    try {
+        const { role } = req.body;
+        
+        if (!role) {
+            return res.status(400).json({ error: 'Il campo role è richiesto' });
+        }
+
+        const result = await query(
+            'UPDATE users SET role = $1 WHERE id = $2 RETURNING id, username, role, created_at',
+            [role, req.params.id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Utente non trovato' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Errore aggiornamento utente:', error);
+        res.status(500).json({ error: 'Errore nell\'aggiornamento dell\'utente' });
+    }
+});
+
+app.delete('/api/users/:id', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Non autorizzato' });
+    try {
+        // Non permettere di eliminare se stessi
+        if (parseInt(req.params.id) === req.user.id) {
+            return res.status(400).json({ error: 'Non puoi eliminare il tuo stesso account' });
+        }
+
+        const result = await query('DELETE FROM users WHERE id = $1 RETURNING id, username', [req.params.id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Utente non trovato' });
+        }
+
+        res.json({ message: 'Utente eliminato con successo', user: result.rows[0] });
+    } catch (error) {
+        console.error('Errore eliminazione utente:', error);
+        res.status(500).json({ error: 'Errore nell\'eliminazione dell\'utente' });
+    }
+});
+
 // === SIGNS ===
 app.get('/api/signs', authenticateToken, async (req, res) => {
     try {

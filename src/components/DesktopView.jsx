@@ -142,41 +142,74 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
 
                 {activeTab === 'archive' && (
                     <div className="card">
-                        <div className="table-responsive">
-                            <table className="table" style={{ width: '100%' }}>
-                                <thead>
-                                    <tr>
-                                        <th>Tipo</th>
-                                        <th>Stato</th>
-                                        <th>Posizione</th>
-                                        <th>Data</th>
-                                        <th>Note</th>
-                                        <th>Sync</th>
-                                        <th>Azioni</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {signs.length === 0 ? (
-                                        <tr><td colSpan="7" style={{ textAlign: 'center', padding: '2rem' }}>Nessun segnale presente</td></tr>
-                                    ) : (
-                                        signs.map(sign => (
-                                            <tr key={sign.id}>
-                                                <td>{getSignIcon(sign.type)} {sign.type}</td>
-                                                <td><span className={`badge ${getStatusBadge(sign.status)}`}>{sign.status}</span></td>
-                                                <td>{sign.latitude?.toFixed(4)}, {sign.longitude?.toFixed(4)}</td>
-                                                <td>{new Date(sign.created_at).toLocaleDateString()}</td>
-                                                <td>{sign.notes}</td>
-                                                <td>{sign.synced ? '✅' : '⏳'}</td>
-                                                <td>
-                                                    <button onClick={() => handleOpenDetails(sign)} className="btn btn-sm btn-primary" style={{ marginRight: '0.5rem' }}>👁️</button>
-                                                    <button onClick={() => handleDeleteSign(sign.id)} className="btn btn-sm btn-danger">🗑️</button>
+                        <h3 style={{ marginBottom: '1rem', fontSize: '1.25rem', fontWeight: '600' }}>
+                            📋 Archivio Segnali
+                        </h3>
+                        {!signs || signs.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--gray-500)' }}>
+                                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📭</div>
+                                <h4>Nessun segnale presente</h4>
+                                <p>Sincronizza i dati o aggiungi un nuovo segnale dalla vista mobile.</p>
+                            </div>
+                        ) : (
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '2px solid var(--gray-200)', background: 'var(--gray-50)' }}>
+                                            <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: '600' }}>Tipo</th>
+                                            <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: '600' }}>Stato</th>
+                                            <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: '600' }}>Posizione</th>
+                                            <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: '600' }}>Data</th>
+                                            <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: '600' }}>Note</th>
+                                            <th style={{ padding: '0.75rem', textAlign: 'center', fontWeight: '600' }}>Sync</th>
+                                            <th style={{ padding: '0.75rem', textAlign: 'right', fontWeight: '600' }}>Azioni</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {signs.map(sign => (
+                                            <tr key={sign.id} style={{ borderBottom: '1px solid var(--gray-100)' }}>
+                                                <td style={{ padding: '0.75rem' }}>
+                                                    <span style={{ fontSize: '1.25rem', marginRight: '0.5rem' }}>{getSignIcon(sign.type)}</span>
+                                                    {sign.type || 'N/A'}
+                                                </td>
+                                                <td style={{ padding: '0.75rem' }}>
+                                                    <span className={`badge ${getStatusBadge(sign.status)}`}>
+                                                        {sign.status || 'N/A'}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '0.75rem', fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                                                    {sign.latitude ? `${Number(sign.latitude).toFixed(4)}, ${Number(sign.longitude).toFixed(4)}` : 'N/A'}
+                                                </td>
+                                                <td style={{ padding: '0.75rem' }}>
+                                                    {sign.created_at ? new Date(sign.created_at).toLocaleDateString('it-IT') : 'N/A'}
+                                                </td>
+                                                <td style={{ padding: '0.75rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {sign.notes || '-'}
+                                                </td>
+                                                <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                                                    {sign.synced ? '✅' : '⏳'}
+                                                </td>
+                                                <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                                                    <button 
+                                                        onClick={() => handleOpenDetails(sign)} 
+                                                        className="btn btn-sm btn-primary" 
+                                                        style={{ marginRight: '0.5rem' }}
+                                                    >
+                                                        👁️
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeleteSign(sign.id)} 
+                                                        className="btn btn-sm btn-danger"
+                                                    >
+                                                        🗑️
+                                                    </button>
                                                 </td>
                                             </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -199,7 +232,7 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
                 )}
 
                 {activeTab === 'users' && user?.role === 'admin' && (
-                    <UserManagement />
+                    <UserManagement user={user} />
                 )}
             </div>
         </div>
