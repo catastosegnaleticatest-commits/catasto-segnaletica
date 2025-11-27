@@ -39,16 +39,10 @@ function SignTooltip({ sign, position, onOpenDetails, onClose, onMouseEnter, onM
         
         const loadPhoto = async () => {
             try {
-                console.log(`📸 Caricamento foto tooltip per segnale ${sign.id}`);
+                console.log(`📸 Caricamento foto tooltip per segnale ${sign.id}, key: ${photoKey}`);
                 
-                // Prima prova da locale
-                const localPhoto = await localStorageService.getPhoto(sign.id);
-                if (localPhoto) {
-                    console.log('✅ Foto trovata in locale');
-                    setPhoto(localPhoto);
-                    setLoading(false);
-                    return;
-                }
+                // NON usare la cache locale per il tooltip, carica sempre dal server
+                // per avere le foto più aggiornate
                 
                 // Prova a caricare la prima foto dal server (nuova API)
                 try {
@@ -95,8 +89,16 @@ function SignTooltip({ sign, position, onOpenDetails, onClose, onMouseEnter, onM
                     console.log('✅ Foto caricata da vecchia API');
                     setPhoto(serverPhoto);
                 } else {
-                    console.log('❌ Nessuna foto trovata');
-                    setPhoto(null);
+                    // Ultimo tentativo: prova da locale
+                    console.log('🔄 Ultimo tentativo: cache locale');
+                    const localPhoto = await localStorageService.getPhoto(sign.id);
+                    if (localPhoto) {
+                        console.log('✅ Foto trovata in locale');
+                        setPhoto(localPhoto);
+                    } else {
+                        console.log('❌ Nessuna foto trovata');
+                        setPhoto(null);
+                    }
                 }
             } catch (error) {
                 console.error('❌ Errore caricamento foto tooltip:', error);
@@ -429,8 +431,10 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
             {/* Tooltip personalizzato React */}
             {hoveredSign && (
                 <SignTooltip 
+                    key={`tooltip-${hoveredSign.id}-${photoReloadKey}`}
                     sign={hoveredSign} 
                     position={tooltipPos}
+                    photoKey={`${hoveredSign.id}-${photoReloadKey}`}
                     onOpenDetails={onOpenDetails}
                     onClose={() => {
                         setIsTooltipHovered(false);
