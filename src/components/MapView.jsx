@@ -53,15 +53,25 @@ function SignTooltip({ sign, position, onOpenDetails, onClose, onMouseEnter, onM
                             if (!a.is_primary && b.is_primary) return 1;
                             return (a.display_order || 0) - (b.display_order || 0);
                         });
-                        const firstPhoto = await apiService.getPhotoByIdAsDataUrl(sortedPhotos[0].id);
-                        if (firstPhoto) {
-                            setPhoto(firstPhoto);
+                        
+                        // Se è una foto legacy (senza ID), usa l'endpoint vecchio
+                        const firstPhoto = sortedPhotos[0];
+                        let photoDataUrl = null;
+                        
+                        if (firstPhoto.legacy || !firstPhoto.id) {
+                            photoDataUrl = await apiService.getPhotoAsDataUrl(sign.id);
+                        } else {
+                            photoDataUrl = await apiService.getPhotoByIdAsDataUrl(firstPhoto.id);
+                        }
+                        
+                        if (photoDataUrl) {
+                            setPhoto(photoDataUrl);
                             setLoading(false);
                             return;
                         }
                     }
                 } catch (e) {
-                    console.log('Nuova API foto non disponibile, provo vecchia API');
+                    console.log('Nuova API foto non disponibile, provo vecchia API:', e);
                 }
                 
                 // Fallback alla vecchia API
@@ -199,15 +209,25 @@ function SignPopupContent({ sign, onOpenDetails }) {
                             if (!a.is_primary && b.is_primary) return 1;
                             return (a.display_order || 0) - (b.display_order || 0);
                         });
-                        const firstPhoto = await apiService.getPhotoByIdAsDataUrl(sortedPhotos[0].id);
-                        if (firstPhoto) {
-                            setPhoto(firstPhoto);
+                        
+                        // Se è una foto legacy (senza ID), usa l'endpoint vecchio
+                        const firstPhoto = sortedPhotos[0];
+                        let photoDataUrl = null;
+                        
+                        if (firstPhoto.legacy || !firstPhoto.id) {
+                            photoDataUrl = await apiService.getPhotoAsDataUrl(sign.id);
+                        } else {
+                            photoDataUrl = await apiService.getPhotoByIdAsDataUrl(firstPhoto.id);
+                        }
+                        
+                        if (photoDataUrl) {
+                            setPhoto(photoDataUrl);
                             setLoading(false);
                             return;
                         }
                     }
                 } catch (e) {
-                    console.log('Nuova API foto non disponibile, provo vecchia API');
+                    console.log('Nuova API foto non disponibile, provo vecchia API:', e);
                 }
                 
                 // Fallback alla vecchia API
