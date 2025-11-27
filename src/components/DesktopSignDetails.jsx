@@ -51,6 +51,11 @@ function DesktopSignDetails({ sign, onBack }) {
                     // Carica le immagini come data URL
                     const photosWithData = await Promise.all(
                         serverPhotos.map(async (photo) => {
+                            // Se è una foto legacy (senza ID), usa l'endpoint vecchio
+                            if (photo.legacy || !photo.id) {
+                                const dataUrl = await apiService.getPhotoAsDataUrl(sign.id);
+                                return { ...photo, dataUrl, id: 'legacy' };
+                            }
                             const dataUrl = await apiService.getPhotoByIdAsDataUrl(photo.id);
                             return { ...photo, dataUrl };
                         })

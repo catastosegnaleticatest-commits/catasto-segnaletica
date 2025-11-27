@@ -531,6 +531,7 @@ app.delete('/api/signs/:id', authenticateToken, async (req, res) => {
 // Ottieni tutte le foto di un segnale
 app.get('/api/signs/:id/photos', authenticateToken, async (req, res) => {
     try {
+        // Prima prova dalla nuova tabella sign_photos
         const result = await query(
             `SELECT id, sign_id, photo_path, uploaded_at, is_primary, display_order
              FROM sign_photos 
@@ -538,7 +539,35 @@ app.get('/api/signs/:id/photos', authenticateToken, async (req, res) => {
              ORDER BY is_primary DESC, display_order ASC, uploaded_at ASC`,
             [req.params.id]
         );
-        res.json(result.rows);
+        
+        // Se ci sono foto nella nuova tabella, restituiscile
+        if (result.rows.length > 0) {
+            return res.json(result.rows);
+        }
+        
+        // Fallback: controlla se c'è una foto nella vecchia struttura (signs.photo_path)
+        const oldSignResult = await query(
+            'SELECT photo_path, created_by FROM signs WHERE id = $1 AND photo_path IS NOT NULL AND photo_path != \'\'',
+            [req.params.id]
+        );
+        
+        if (oldSignResult.rows.length > 0 && oldSignResult.rows[0].photo_path) {
+            // Crea un record virtuale per la foto vecchia (per compatibilità)
+            // Nota: questo non ha un ID reale, ma il frontend può usare l'endpoint /api/signs/:id/photo
+            return res.json([{
+                id: null, // Indica che è una foto legacy
+                sign_id: parseInt(req.params.id),
+                photo_path: oldSignResult.rows[0].photo_path,
+                uploaded_by: oldSignResult.rows[0].created_by,
+                uploaded_at: null,
+                is_primary: true,
+                display_order: 0,
+                legacy: true // Flag per indicare che è dalla vecchia struttura
+            }]);
+        }
+        
+        // Nessuna foto trovata
+        res.json([]);
     } catch (error) {
         console.error('Error fetching photos:', error);
         res.status(500).json({ error: 'Errore nel recupero delle foto' });
