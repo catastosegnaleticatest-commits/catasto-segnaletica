@@ -1,180 +1,208 @@
-                            </div >
-    <div style={{ textAlign: 'center' }}>
-        <div style={{ fontWeight: '700', fontSize: '1rem', color: stats.local?.pendingSync > 0 ? 'var(--warning)' : 'var(--success)' }}>
-            {stats.local?.pendingSync || 0}
-        </div>
-        <div style={{ fontSize: '0.7rem', color: 'var(--gray-600)' }}>Sync</div>
-    </div>
-                        </div >
-                    )}
+import React, { useState } from 'react';
+import MapView from './MapView';
+import DesktopSignDetails from './DesktopSignDetails';
+import UserManagement from './UserManagement';
+import localStorageService from '../services/localStorage';
+import syncService from '../services/sync';
 
-<div style={{ textAlign: 'right', lineHeight: '1.2' }}>
-    <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>
-        {user?.username || 'Utente'}
-    </div>
-    <div style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>
-        {user?.role?.toUpperCase()}
-    </div>
-</div>
-                </div >
-            </div >
+function DesktopView({ user, syncStatus, stats, onDataChange }) {
+    const [activeTab, setActiveTab] = useState('map');
+    const [selectedSign, setSelectedSign] = useState(null);
+    const [signs, setSigns] = useState([]);
+    const [interventions, setInterventions] = useState([]);
 
-    {/* Details Tab (Hidden from nav, activated by map) */ }
-{
-    activeTab === 'details' && selectedSign && (
-        <DesktopSignDetails
-            sign={selectedSign}
-            onBack={() => setActiveTab('map')}
-        />
-    )
-}
+    // Carica dati all'avvio e quando cambiano
+    React.useEffect(() => {
+        loadData();
+        const interval = setInterval(loadData, 5000);
+        return () => clearInterval(interval);
+    }, []);
 
-{/* Map Tab */ }
-{
-    activeTab === 'map' && (
-        <div className="card" style={{ height: '600px', padding: 0, overflow: 'hidden' }}>
-            {signs.length > 0 ? (
-                <MapView
-                    signs={signs}
-                    onSignClick={(sign) => console.log('Selected sign:', sign)}
-                    onOpenDetails={handleOpenDetails}
-                />
-            ) : (
-                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--gray-500)' }}>
-                    Nessun segnale presente
-                </div>
-            )}
-        </div>
-    )
-}
+    const loadData = async () => {
+        try {
+            const localSigns = await localStorageService.getSigns();
+            const localInterventions = await localStorageService.getInterventions();
+            setSigns(localSigns);
+            setInterventions(localInterventions);
+        } catch (error) {
+            console.error('Errore caricamento dati:', error);
+        }
+    };
 
-{/* Archive Tab */ }
-{
-    activeTab === 'archive' && (
-        <div className="card">
-            <div className="card-header">
-                <h3 className="card-title">Archivio Segnali ({signs.length})</h3>
+    const handleForceSync = async () => {
+        if (!confirm('Vuoi forzare la sincronizzazione?')) return;
+        try {
+            await localStorageService.resetSyncStatus();
+            await syncService.fullSync();
+            if (onDataChange) onDataChange();
+            loadData();
+            alert('Sincronizzazione completata!');
+        } catch (error) {
+            alert('Errore sync: ' + error.message);
+        }
+    };
+
+    const handleOpenDetails = (sign) => {
+        setSelectedSign(sign);
+        setActiveTab('details');
+    };
+
+    const handleDeleteSign = async (id) => {
+        if (!confirm('Sei sicuro di voler eliminare questo segnale?')) return;
+        try {
+            await localStorageService.deleteSign(id);
+            loadData();
+            if (onDataChange) onDataChange();
+        } catch (error) {
+            alert('Errore eliminazione: ' + error.message);
+        }
+    };
+
+    const getSignIcon = (type) => {
+        const icons = {
+            pericolo: '⚠️',
+            divieto: '⛔',
+            obbligo: '🔵',
+            indicazione: 'ℹ️'
+        };
+        return icons[type] || '📍';
+    };
+
+    const getStatusBadge = (status) => {
+        const colors = {
+            buono: 'badge-success',
+            discreto: 'badge-warning',
+            scadente: 'badge-danger',
+            danneggiato: 'badge-danger'
+        };
+        return colors[status] || 'badge-secondary';
+    };
+
+    if (activeTab === 'details' && selectedSign) {
+        return (
+            <DesktopSignDetails
+                sign={selectedSign}
+                onBack={() => setActiveTab('map')}
+            />
+        );
+    }
+
+    return (
+        <div className="desktop-view">
+            <div className="tabs" style={{ marginBottom: '1rem', borderBottom: '1px solid #ddd', paddingBottom: '0.5rem' }}>
+                <button
+                    className={`btn ${activeTab === 'map' ? 'btn-primary' : 'btn-outline'}`}
+                    onClick={() => setActiveTab('map')}
+                    style={{ marginRight: '0.5rem' }}
+                >
+                    🗺️ Mappa
+                </button>
+                <button
+                    className={`btn ${activeTab === 'archive' ? 'btn-primary' : 'btn-outline'}`}
+                    onClick={() => setActiveTab('archive')}
+                    style={{ marginRight: '0.5rem' }}
+                >
+                    📋 Archivio ({signs.length})
+                </button>
+                <button
+                    className={`btn ${activeTab === 'interventions' ? 'btn-primary' : 'btn-outline'}`}
+                    onClick={() => setActiveTab('interventions')}
+                    style={{ marginRight: '0.5rem' }}
+                >
+                    🔧 Interventi
+                </button>
+                {user?.role === 'admin' && (
+                    <button
+                        className={`btn ${activeTab === 'users' ? 'btn-primary' : 'btn-outline'}`}
+                        onClick={() => setActiveTab('users')}
+                    >
+                        👥 Utenti
+                    </button>
+                )}
+
+                <button
+                    onClick={handleForceSync}
+                    className="btn btn-sm btn-secondary"
+                    style={{ float: 'right' }}
+                >
+                    🔄 Ricarica Dati
+                </button>
             </div>
-            {signs.length > 0 ? (
-                <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ borderBottom: '2px solid var(--gray-200)', textAlign: 'left' }}>
-                                <th style={{ padding: '0.75rem' }}>Tipo</th>
-                                <th style={{ padding: '0.75rem' }}>Stato</th>
-                                <th style={{ padding: '0.75rem' }}>Utente</th>
-                                <th style={{ padding: '0.75rem' }}>Posizione</th>
-                                <th style={{ padding: '0.75rem' }}>Data</th>
-                                <th style={{ padding: '0.75rem' }}>Note</th>
-                                <th style={{ padding: '0.75rem' }}>Sync</th>
-                                <th style={{ padding: '0.75rem', textAlign: 'right' }}>Azioni</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {signs.map((sign) => {
-                                if (!sign || !sign.id) return null;
-                                try {
-                                    return (
-                                        <tr key={sign.id} style={{ borderBottom: '1px solid var(--gray-200)' }}>
-                                            <td style={{ padding: '0.75rem' }}>
-                                                {getSignIcon(sign.type)} {sign.type || 'Sconosciuto'}
-                                            </td>
-                                            <td style={{ padding: '0.75rem' }}>
-                                                <span className={`badge ${getStatusBadge(sign.status)}`}>
-                                                    {sign.status || 'N/D'}
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
-                                                👤 {sign.creator_username || 'N/D'}
-                                            </td>
-                                            <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
-                                                {sign.latitude?.toFixed(4) || 0}, {sign.longitude?.toFixed(4) || 0}
-                                            </td>
-                                            <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
-                                                {sign.created_at ? new Date(sign.created_at).toLocaleDateString('it-IT') : '-'}
-                                            </td>
-                                            <td style={{ padding: '0.75rem', fontSize: '0.875rem', maxWidth: '200px' }}>
-                                                {sign.notes || '-'}
-                                            </td>
-                                            <td style={{ padding: '0.75rem' }}>
-                                                {sign.synced ? '✅' : '⏳'}
-                                            </td>
-                                            <td style={{ padding: '0.75rem', textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                                <button
-                                                    className="btn btn-sm btn-primary"
-                                                    onClick={() => handleOpenDetails(sign)}
-                                                    title="Vedi Dettagli"
-                                                >
-                                                    👁️
-                                                </button>
-                                                <button
-                                                    className="btn btn-sm"
-                                                    onClick={() => handleDeleteSign(sign.id)}
-                                                    style={{ background: 'var(--danger)', color: 'white' }}
-                                                    title="Elimina"
-                                                >
-                                                    🗑️
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                } catch (err) {
-                                    console.error('Errore rendering riga:', err, sign);
-                                    return null;
-                                }
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            ) : (
-                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--gray-500)' }}>
-                    Nessun segnale presente
-                </div>
-            )}
-        </div>
-    )
-}
 
-{/* Interventions Tab */ }
-{
-    activeTab === 'interventions' && (
-        <div className="card">
-            <div className="card-header">
-                <h3 className="card-title">Interventi Programmati ({interventions.length})</h3>
-            </div>
-            {interventions.length > 0 ? (
-                <div className="grid">
-                    {interventions.map((intervention) => (
-                        <div key={intervention.id} className="card">
-                            <h4 style={{ marginBottom: '0.5rem' }}>🔧 {intervention.type}</h4>
-                            <p style={{ fontSize: '0.875rem', color: 'var(--gray-600)' }}>
-                                {intervention.notes}
-                            </p>
-                            <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
-                                <strong>Data:</strong> {intervention.scheduled_date || '-'}
-                            </div>
-                            <span className={`badge ${intervention.status === 'completato' ? 'badge-success' : 'badge-warning'}`}>
-                                {intervention.status}
-                            </span>
+            <div className="tab-content">
+                {activeTab === 'map' && (
+                    <div className="card" style={{ height: '600px', padding: 0, overflow: 'hidden' }}>
+                        <MapView
+                            signs={signs}
+                            onSignClick={handleOpenDetails}
+                            onOpenDetails={handleOpenDetails}
+                        />
+                    </div>
+                )}
+
+                {activeTab === 'archive' && (
+                    <div className="card">
+                        <div className="table-responsive">
+                            <table className="table" style={{ width: '100%' }}>
+                                <thead>
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Stato</th>
+                                        <th>Posizione</th>
+                                        <th>Data</th>
+                                        <th>Note</th>
+                                        <th>Sync</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {signs.length === 0 ? (
+                                        <tr><td colSpan="7" style={{ textAlign: 'center', padding: '2rem' }}>Nessun segnale presente</td></tr>
+                                    ) : (
+                                        signs.map(sign => (
+                                            <tr key={sign.id}>
+                                                <td>{getSignIcon(sign.type)} {sign.type}</td>
+                                                <td><span className={`badge ${getStatusBadge(sign.status)}`}>{sign.status}</span></td>
+                                                <td>{sign.latitude?.toFixed(4)}, {sign.longitude?.toFixed(4)}</td>
+                                                <td>{new Date(sign.created_at).toLocaleDateString()}</td>
+                                                <td>{sign.notes}</td>
+                                                <td>{sign.synced ? '✅' : '⏳'}</td>
+                                                <td>
+                                                    <button onClick={() => handleOpenDetails(sign)} className="btn btn-sm btn-primary" style={{ marginRight: '0.5rem' }}>👁️</button>
+                                                    <button onClick={() => handleDeleteSign(sign.id)} className="btn btn-sm btn-danger">🗑️</button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
-                    ))}
-                </div>
-            ) : (
-                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--gray-500)' }}>
-                    Nessun intervento programmato
-                </div>
-            )}
-        </div>
-    )
-}
+                    </div>
+                )}
 
-{/* Users Tab (Admin only) */ }
-{
-    activeTab === 'users' && user?.role === 'admin' && (
-        <UserManagement user={user} />
-    )
-}
-        </div >
+                {activeTab === 'interventions' && (
+                    <div className="grid">
+                        {interventions.length === 0 ? (
+                            <div className="card" style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem' }}>
+                                Nessun intervento programmato
+                            </div>
+                        ) : (
+                            interventions.map(intervention => (
+                                <div key={intervention.id} className="card">
+                                    <h4>{intervention.type}</h4>
+                                    <p>{intervention.notes}</p>
+                                    <small>Data: {intervention.scheduled_date}</small>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
+
+                {activeTab === 'users' && user?.role === 'admin' && (
+                    <UserManagement />
+                )}
+            </div>
+        </div>
     );
 }
 
