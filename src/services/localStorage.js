@@ -236,6 +236,21 @@ class LocalStorageService {
         if (item) {
             item.processed = true;
             await db.put('syncQueue', item);
+
+            // IMPORTANTE: Aggiorna anche il campo synced del segnale/intervento corrispondente
+            if (item.tableName === 'signs' && item.recordId) {
+                const sign = await db.get('signs', item.recordId);
+                if (sign) {
+                    sign.synced = true;
+                    await db.put('signs', sign);
+                }
+            } else if (item.tableName === 'interventions' && item.recordId) {
+                const intervention = await db.get('interventions', item.recordId);
+                if (intervention) {
+                    intervention.synced = true;
+                    await db.put('interventions', intervention);
+                }
+            }
         }
     }
 
