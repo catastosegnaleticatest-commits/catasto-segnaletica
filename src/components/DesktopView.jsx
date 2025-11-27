@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import MapView from './MapView';
 import DesktopSignDetails from './DesktopSignDetails';
+import DesktopAddSign from './DesktopAddSign';
 import UserManagement from './UserManagement';
 import localStorageService from '../services/localStorage';
 import syncService from '../services/sync';
@@ -95,6 +96,20 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
         );
     }
 
+    if (activeTab === 'add') {
+        return (
+            <DesktopAddSign
+                user={user}
+                onDataChange={() => {
+                    loadData();
+                    if (onDataChange) onDataChange();
+                    setActiveTab('archive'); // Torna all'archivio dopo il salvataggio
+                }}
+                onBack={() => setActiveTab('map')}
+            />
+        );
+    }
+
     return (
         <div className="desktop-view" style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 1rem' }}>
             <div className="tabs" style={{ 
@@ -119,6 +134,13 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
                         onClick={() => setActiveTab('archive')}
                     >
                         📋 Archivio ({signs.length})
+                    </button>
+                    <button
+                        className="btn btn-primary"
+                        onClick={() => setActiveTab('add')}
+                        style={{ background: '#10b981', borderColor: '#10b981' }}
+                    >
+                        ➕ Nuovo Segnale
                     </button>
                     <button
                         className={`btn ${activeTab === 'interventions' ? 'btn-primary' : 'btn-outline'}`}
