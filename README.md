@@ -60,6 +60,15 @@ L'applicazione sarà disponibile su `http://localhost:5173`
 - Username: `admin`
 - Password: `admin123`
 
+## 🌐 Deploy in Produzione
+
+L'applicazione è deployata su **Netlify**:
+- **URL**: https://catasto-segnaletica.netlify.app
+- **Deploy automatico**: Ogni push su `main` attiva un nuovo deploy
+- **Backend**: Hosted su Render (https://catasto-segnaletica.onrender.com)
+
+> **Nota**: GitHub Pages è disabilitato perché non supporta repository privati con account gratuito. Netlify è la soluzione utilizzata per repository privati.
+
 ## 📂 Struttura Progetto
 
 ```
