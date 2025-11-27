@@ -33,7 +33,7 @@
   "description": "Applicazione web per la gestione del catasto della segnaletica stradale",
   "main": "eslint.config.js",
   "keywords": ["catasto", "segnaletica", "stradale"],
-  "author": "[Il Tuo Nome]",
+  "author": "Marcello Berneri",
   "license": "UNLICENSED",
   "private": true
 }

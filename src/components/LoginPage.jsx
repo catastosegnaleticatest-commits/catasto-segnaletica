@@ -49,7 +49,7 @@ function LoginPage({ onLogin }) {
                     textAlign: 'center',
                     color: 'rgba(255,255,255,0.9)'
                 }}>
-                    © 2025 [Il Tuo Nome]. Tutti i diritti riservati.
+                    © 2025 Marcello Berneri. Tutti i diritti riservati.
                 </div>
 
                 <form onSubmit={handleSubmit}>

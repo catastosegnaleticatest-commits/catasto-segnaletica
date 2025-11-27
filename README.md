@@ -161,7 +161,7 @@ Per problemi o domande, consulta la documentazione o contatta il supporto tecnic
 
 ## 📄 Copyright e Proprietà Intellettuale
 
-**Copyright © 2025 [Il Tuo Nome]. Tutti i diritti riservati.**
+**Copyright © 2025 Marcello Berneri. Tutti i diritti riservati.**
 
 Questo software e la relativa documentazione sono protetti da copyright e sono di 
 proprietà esclusiva del titolare del copyright. È vietata qualsiasi forma di 

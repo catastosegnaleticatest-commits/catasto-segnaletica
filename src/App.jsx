@@ -251,7 +251,7 @@ function App() {
         textAlign: 'center',
         zIndex: 100
       }}>
-        © 2025 [Il Tuo Nome]. Tutti i diritti riservati. Proprietà intellettuale protetta.
+        © 2025 Marcello Berneri. Tutti i diritti riservati. Proprietà intellettuale protetta.
       </footer>
     </div>
   );

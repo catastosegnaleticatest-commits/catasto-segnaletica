@@ -2,7 +2,7 @@
 
 ## Avviso di Copyright
 
-**Copyright © 2025 [Il Tuo Nome]. Tutti i diritti riservati.**
+**Copyright © 2025 Marcello Berneri. Tutti i diritti riservati.**
 
 Questo software e la relativa documentazione (il "Software") sono di proprietà 
 esclusiva del titolare del copyright indicato sopra e sono protetti dalle leggi 
