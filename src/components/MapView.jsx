@@ -28,16 +28,23 @@ function MapBounds({ signs }) {
 }
 
 // Componente Tooltip personalizzato
-function SignTooltip({ sign, position, onOpenDetails, onClose, onMouseEnter, onMouseLeave }) {
+function SignTooltip({ sign, position, onOpenDetails, onClose, onMouseEnter, onMouseLeave, photoKey }) {
     const [photo, setPhoto] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // Reset foto quando cambia il key (forza ricaricamento)
+        setPhoto(null);
+        setLoading(true);
+        
         const loadPhoto = async () => {
             try {
+                console.log(`📸 Caricamento foto tooltip per segnale ${sign.id}`);
+                
                 // Prima prova da locale
                 const localPhoto = await localStorageService.getPhoto(sign.id);
                 if (localPhoto) {
+                    console.log('✅ Foto trovata in locale');
                     setPhoto(localPhoto);
                     setLoading(false);
                     return;
@@ -46,6 +53,8 @@ function SignTooltip({ sign, position, onOpenDetails, onClose, onMouseEnter, onM
                 // Prova a caricare la prima foto dal server (nuova API)
                 try {
                     const photos = await apiService.getSignPhotos(sign.id);
+                    console.log(`📊 Foto trovate sul server: ${photos?.length || 0}`);
+                    
                     if (photos && photos.length > 0) {
                         // Ordina per primaria e display_order
                         const sortedPhotos = photos.sort((a, b) => {
@@ -59,15 +68,20 @@ function SignTooltip({ sign, position, onOpenDetails, onClose, onMouseEnter, onM
                         let photoDataUrl = null;
                         
                         if (firstPhoto.legacy || !firstPhoto.id) {
+                            console.log('📷 Foto legacy, uso endpoint vecchio');
                             photoDataUrl = await apiService.getPhotoAsDataUrl(sign.id);
                         } else {
+                            console.log(`📷 Caricamento foto ID: ${firstPhoto.id}`);
                             photoDataUrl = await apiService.getPhotoByIdAsDataUrl(firstPhoto.id);
                         }
                         
                         if (photoDataUrl) {
+                            console.log('✅ Foto caricata con successo');
                             setPhoto(photoDataUrl);
                             setLoading(false);
                             return;
+                        } else {
+                            console.log('⚠️ Foto non caricata (dataUrl null)');
                         }
                     }
                 } catch (e) {
@@ -75,21 +89,24 @@ function SignTooltip({ sign, position, onOpenDetails, onClose, onMouseEnter, onM
                 }
                 
                 // Fallback alla vecchia API
+                console.log('🔄 Fallback a vecchia API');
                 const serverPhoto = await apiService.getPhotoAsDataUrl(sign.id);
                 if (serverPhoto) {
+                    console.log('✅ Foto caricata da vecchia API');
                     setPhoto(serverPhoto);
                 } else {
+                    console.log('❌ Nessuna foto trovata');
                     setPhoto(null);
                 }
             } catch (error) {
-                console.error('Errore caricamento foto tooltip:', error);
+                console.error('❌ Errore caricamento foto tooltip:', error);
                 setPhoto(null);
             } finally {
                 setLoading(false);
             }
         };
         loadPhoto();
-    }, [sign.id]);
+    }, [sign.id, photoKey]); // Aggiunto photoKey per forzare ricaricamento
 
     const getTypeIcon = (type) => {
         const icons = {
@@ -305,6 +322,12 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
     const [hoveredSign, setHoveredSign] = useState(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
     const [isTooltipHovered, setIsTooltipHovered] = useState(false);
+    const [photoReloadKey, setPhotoReloadKey] = useState(0);
+
+    // Forza ricaricamento foto quando cambiano i segnali
+    useEffect(() => {
+        setPhotoReloadKey(prev => prev + 1);
+    }, [signs]);
 
     // Centro Italia come default se non ci sono segnali
     const defaultCenter = [41.9028, 12.4964];
