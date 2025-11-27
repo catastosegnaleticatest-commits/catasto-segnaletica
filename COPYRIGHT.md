@@ -47,7 +47,7 @@ Per informazioni su:
 - Partnership o collaborazioni
 - Domande legali
 
-Contattare il titolare del copyright all'indirizzo: [Il Tuo Indirizzo Email]
+Contattare il titolare del copyright all'indirizzo: marcello.berneri@gmail.com
 
 ---
 
