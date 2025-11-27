@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import localStorageService from '../services/localStorage';
 import apiService from '../services/api';
+import MapCoordinatePicker from './MapCoordinatePicker';
 
 function DesktopAddSign({ user, onDataChange, onBack }) {
     const [formData, setFormData] = useState({
@@ -15,6 +16,7 @@ function DesktopAddSign({ user, onDataChange, onBack }) {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [manualGPS, setManualGPS] = useState(false);
+    const [showMapPicker, setShowMapPicker] = useState(false);
     const fileInputRef = useRef(null);
 
     const signTypes = [
@@ -273,27 +275,40 @@ function DesktopAddSign({ user, onDataChange, onBack }) {
                                 </div>
 
                                 {manualGPS ? (
-                                    <div style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr 1fr' }}>
-                                        <div>
-                                            <input
-                                                type="number"
-                                                step="0.000001"
-                                                className="form-input"
-                                                value={formData.latitude || ''}
-                                                onChange={(e) => setFormData(prev => ({ ...prev, latitude: parseFloat(e.target.value) || null }))}
-                                                placeholder="Latitudine"
-                                            />
-                                        </div>
-                                        <div>
-                                            <input
-                                                type="number"
-                                                step="0.000001"
-                                                className="form-input"
-                                                value={formData.longitude || ''}
-                                                onChange={(e) => setFormData(prev => ({ ...prev, longitude: parseFloat(e.target.value) || null }))}
-                                                placeholder="Longitudine"
-                                            />
-                                        </div>
+                                    <div>
+                                        <button
+                                            type="button"
+                                            className="btn btn-primary"
+                                            onClick={() => setShowMapPicker(true)}
+                                            style={{ width: '100%', marginBottom: '0.5rem' }}
+                                        >
+                                            🗺️ Seleziona sulla Mappa
+                                        </button>
+                                        {formData.latitude && formData.longitude ? (
+                                            <div style={{
+                                                padding: '0.75rem',
+                                                background: '#dcfce7',
+                                                borderRadius: 'var(--border-radius-sm)',
+                                                fontSize: '0.875rem',
+                                                color: '#166534',
+                                                fontWeight: '600',
+                                                fontFamily: 'monospace',
+                                                textAlign: 'center'
+                                            }}>
+                                                ✅ {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                                            </div>
+                                        ) : (
+                                            <div style={{
+                                                padding: '0.75rem',
+                                                background: '#fef3c7',
+                                                borderRadius: 'var(--border-radius-sm)',
+                                                fontSize: '0.875rem',
+                                                color: '#92400e',
+                                                textAlign: 'center'
+                                            }}>
+                                                Clicca "Seleziona sulla Mappa" per scegliere le coordinate
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
                                     formData.latitude && (
@@ -384,6 +399,19 @@ function DesktopAddSign({ user, onDataChange, onBack }) {
                     </div>
                 </form>
             </div>
+
+            {/* Mappa per selezione coordinate */}
+            {showMapPicker && (
+                <MapCoordinatePicker
+                    initialLat={formData.latitude}
+                    initialLng={formData.longitude}
+                    onCoordinateSelect={(lat, lng) => {
+                        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+                        setShowMapPicker(false);
+                    }}
+                    onClose={() => setShowMapPicker(false)}
+                />
+            )}
         </div>
     );
 }
