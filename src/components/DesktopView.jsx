@@ -88,42 +88,50 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
     }
 
     return (
-        <div className="desktop-view">
-            <div className="tabs" style={{ marginBottom: '1rem', borderBottom: '1px solid #ddd', paddingBottom: '0.5rem' }}>
-                <button
-                    className={`btn ${activeTab === 'map' ? 'btn-primary' : 'btn-outline'}`}
-                    onClick={() => setActiveTab('map')}
-                    style={{ marginRight: '0.5rem' }}
-                >
-                    🗺️ Mappa
-                </button>
-                <button
-                    className={`btn ${activeTab === 'archive' ? 'btn-primary' : 'btn-outline'}`}
-                    onClick={() => setActiveTab('archive')}
-                    style={{ marginRight: '0.5rem' }}
-                >
-                    📋 Archivio ({signs.length})
-                </button>
-                <button
-                    className={`btn ${activeTab === 'interventions' ? 'btn-primary' : 'btn-outline'}`}
-                    onClick={() => setActiveTab('interventions')}
-                    style={{ marginRight: '0.5rem' }}
-                >
-                    🔧 Interventi
-                </button>
-                {user?.role === 'admin' && (
+        <div className="desktop-view" style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 1rem' }}>
+            <div className="tabs" style={{ 
+                marginBottom: '1.5rem', 
+                borderBottom: '1px solid #ddd', 
+                paddingBottom: '0.5rem',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '0.5rem',
+                flexWrap: 'wrap'
+            }}>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <button
-                        className={`btn ${activeTab === 'users' ? 'btn-primary' : 'btn-outline'}`}
-                        onClick={() => setActiveTab('users')}
+                        className={`btn ${activeTab === 'map' ? 'btn-primary' : 'btn-outline'}`}
+                        onClick={() => setActiveTab('map')}
                     >
-                        👥 Utenti
+                        🗺️ Mappa
                     </button>
-                )}
+                    <button
+                        className={`btn ${activeTab === 'archive' ? 'btn-primary' : 'btn-outline'}`}
+                        onClick={() => setActiveTab('archive')}
+                    >
+                        📋 Archivio ({signs.length})
+                    </button>
+                    <button
+                        className={`btn ${activeTab === 'interventions' ? 'btn-primary' : 'btn-outline'}`}
+                        onClick={() => setActiveTab('interventions')}
+                    >
+                        🔧 Interventi
+                    </button>
+                    {user?.role === 'admin' && (
+                        <button
+                            className={`btn ${activeTab === 'users' ? 'btn-primary' : 'btn-outline'}`}
+                            onClick={() => setActiveTab('users')}
+                        >
+                            👥 Utenti
+                        </button>
+                    )}
+                </div>
 
                 <button
                     onClick={handleForceSync}
                     className="btn btn-sm btn-secondary"
-                    style={{ float: 'right' }}
+                    style={{ marginLeft: 'auto' }}
                 >
                     🔄 Ricarica Dati
                 </button>
@@ -131,12 +139,26 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
 
             <div className="tab-content">
                 {activeTab === 'map' && (
-                    <div className="card" style={{ height: '600px', padding: 0, overflow: 'hidden' }}>
-                        <MapView
-                            signs={signs}
-                            onSignClick={handleOpenDetails}
-                            onOpenDetails={handleOpenDetails}
-                        />
+                    <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'center', 
+                        alignItems: 'center',
+                        minHeight: '500px'
+                    }}>
+                        <div className="card" style={{ 
+                            width: '900px', 
+                            maxWidth: '100%',
+                            height: '600px', 
+                            padding: 0, 
+                            overflow: 'hidden',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                        }}>
+                            <MapView
+                                signs={signs}
+                                onSignClick={handleOpenDetails}
+                                onOpenDetails={handleOpenDetails}
+                            />
+                        </div>
                     </div>
                 )}
 

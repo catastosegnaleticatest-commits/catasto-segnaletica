@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-leaflet';
 import { useEffect, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -25,6 +25,111 @@ function MapBounds({ signs }) {
     }, [signs, map]);
 
     return null;
+}
+
+// Componente Tooltip personalizzato
+function SignTooltip({ sign, position, onOpenDetails, onClose }) {
+    const [photo, setPhoto] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const loadPhoto = async () => {
+            try {
+                const localPhoto = await localStorageService.getPhoto(sign.id);
+                if (localPhoto) {
+                    setPhoto(localPhoto);
+                } else {
+                    setPhoto(apiService.getPhotoUrl(sign.id));
+                }
+            } catch (error) {
+                setPhoto(apiService.getPhotoUrl(sign.id));
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadPhoto();
+    }, [sign.id]);
+
+    const getTypeIcon = (type) => {
+        const icons = {
+            'divieto': '🚫',
+            'obbligo': '🔵',
+            'pericolo': '⚠️',
+            'indicazione': 'ℹ️'
+        };
+        return icons[type] || '📍';
+    };
+
+    return (
+        <div
+            style={{
+                position: 'fixed',
+                left: `${position.x}px`,
+                top: `${position.y}px`,
+                transform: 'translate(-50%, calc(-100% - 15px))',
+                zIndex: 10000,
+                background: 'white',
+                borderRadius: '8px',
+                padding: '0.75rem',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                minWidth: '200px',
+                maxWidth: '250px',
+                pointerEvents: 'auto'
+            }}
+            onMouseLeave={onClose}
+        >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '1.1rem' }}>{getTypeIcon(sign.type)}</span>
+                <strong style={{ textTransform: 'capitalize', fontSize: '0.9rem' }}>{sign.type || 'N/A'}</strong>
+            </div>
+
+            {loading ? (
+                <div style={{ height: '80px', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>Caricamento...</span>
+                </div>
+            ) : photo ? (
+                <div style={{ marginBottom: '0.5rem' }}>
+                    <img
+                        src={photo}
+                        alt="Segnale"
+                        style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '4px' }}
+                        onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.style.display = 'none';
+                        }}
+                    />
+                </div>
+            ) : null}
+
+            <div style={{ marginBottom: '0.5rem', fontSize: '0.8rem' }}>
+                <span className={`badge ${sign.status === 'ottimo' || sign.status === 'buono' ? 'badge-success' : sign.status === 'discreto' ? 'badge-warning' : 'badge-danger'}`}>
+                    {sign.status || 'N/A'}
+                </span>
+            </div>
+
+            {sign.notes && (
+                <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.5rem', maxHeight: '40px', overflow: 'hidden' }}>
+                    {sign.notes}
+                </div>
+            )}
+
+            <button
+                className="btn btn-sm btn-primary"
+                style={{ 
+                    width: '100%', 
+                    fontSize: '0.75rem', 
+                    padding: '0.35rem',
+                    cursor: 'pointer'
+                }}
+                onClick={() => {
+                    if (onOpenDetails) onOpenDetails(sign);
+                    onClose();
+                }}
+            >
+                👁️ Dettagli
+            </button>
+        </div>
+    );
 }
 
 // Componente Popup con foto
@@ -101,6 +206,8 @@ function SignPopupContent({ sign, onOpenDetails }) {
 
 function MapView({ signs, onSignClick, onOpenDetails }) {
     const [selectedSign, setSelectedSign] = useState(null);
+    const [hoveredSign, setHoveredSign] = useState(null);
+    const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
     // Centro Italia come default se non ci sono segnali
     const defaultCenter = [41.9028, 12.4964];
@@ -142,6 +249,20 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
         }
     };
 
+    // Gestione hover per tooltip
+    useEffect(() => {
+        const handleMouseMove = (e) => {
+            if (hoveredSign) {
+                setTooltipPos({ x: e.clientX, y: e.clientY });
+            }
+        };
+
+        if (hoveredSign) {
+            document.addEventListener('mousemove', handleMouseMove);
+            return () => document.removeEventListener('mousemove', handleMouseMove);
+        }
+    }, [hoveredSign]);
+
     return (
         <div style={{ height: '100%', width: '100%', position: 'relative' }}>
             <MapContainer
@@ -164,7 +285,21 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                                 position={[sign.latitude, sign.longitude]}
                                 icon={createCustomIcon(sign)}
                                 eventHandlers={{
-                                    click: () => handleMarkerClick(sign)
+                                    click: () => handleMarkerClick(sign),
+                                    mouseover: (e) => {
+                                        const marker = e.target;
+                                        const latlng = marker.getLatLng();
+                                        const map = marker._map;
+                                        const point = map.latLngToContainerPoint(latlng);
+                                        const container = map.getContainer();
+                                        const rect = container.getBoundingClientRect();
+                                        setTooltipPos({
+                                            x: rect.left + point.x,
+                                            y: rect.top + point.y
+                                        });
+                                        setHoveredSign(sign);
+                                    },
+                                    mouseout: () => setHoveredSign(null)
                                 }}
                             >
                                 <Popup>
@@ -175,6 +310,16 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                     </>
                 )}
             </MapContainer>
+
+            {/* Tooltip personalizzato React */}
+            {hoveredSign && (
+                <SignTooltip 
+                    sign={hoveredSign} 
+                    position={tooltipPos}
+                    onOpenDetails={onOpenDetails}
+                    onClose={() => setHoveredSign(null)}
+                />
+            )}
 
             {/* Legenda */}
             <div style={{
