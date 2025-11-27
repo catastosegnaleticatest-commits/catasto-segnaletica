@@ -236,6 +236,23 @@ function App() {
           {toast.message}
         </div>
       )}
+
+      {/* Footer Copyright */}
+      <footer style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: 'var(--gray-50)',
+        borderTop: '1px solid var(--gray-200)',
+        padding: '0.5rem 1rem',
+        fontSize: '0.75rem',
+        color: 'var(--gray-600)',
+        textAlign: 'center',
+        zIndex: 100
+      }}>
+        © 2025 [Il Tuo Nome]. Tutti i diritti riservati. Proprietà intellettuale protetta.
+      </footer>
     </div>
   );
 }

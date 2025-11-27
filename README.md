@@ -1,5 +1,12 @@
 # Catasto Segnaletica Stradale 📍
 
+> **⚠️ AVVISO DI PROPRIETÀ INTELLETTUALE**  
+> Questo software è di proprietà esclusiva del titolare del copyright.  
+> È vietata la riproduzione, la distribuzione, la modifica o l'utilizzo senza autorizzazione scritta.  
+> Tutti i diritti riservati. Per informazioni contattare il titolare del copyright.
+
+---
+
 Applicazione web per la gestione del catasto della segnaletica stradale con interfaccia mobile per il rilevamento sul campo e interfaccia desktop per la gestione completa.
 
 ## 🎯 Caratteristiche Principali
@@ -149,6 +156,19 @@ Gestione e programmazione interventi di manutenzione
 ## 🤝 Supporto
 
 Per problemi o domande, consulta la documentazione o contatta il supporto tecnico.
+
+---
+
+## 📄 Copyright e Proprietà Intellettuale
+
+**Copyright © 2025 [Il Tuo Nome]. Tutti i diritti riservati.**
+
+Questo software e la relativa documentazione sono protetti da copyright e sono di 
+proprietà esclusiva del titolare del copyright. È vietata qualsiasi forma di 
+riproduzione, distribuzione, modifica o utilizzo senza autorizzazione scritta.
+
+Per informazioni su licenze, autorizzazioni o utilizzo commerciale, contattare 
+il titolare del copyright.
 
 ---
 

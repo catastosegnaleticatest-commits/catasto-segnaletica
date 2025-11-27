@@ -40,6 +40,18 @@ function LoginPage({ onLogin }) {
                     </p>
                 </div>
 
+                <div style={{ 
+                    marginBottom: '1.5rem', 
+                    padding: '0.75rem', 
+                    background: 'rgba(255,255,255,0.1)', 
+                    borderRadius: 'var(--border-radius)',
+                    fontSize: '0.75rem',
+                    textAlign: 'center',
+                    color: 'rgba(255,255,255,0.9)'
+                }}>
+                    © 2025 [Il Tuo Nome]. Tutti i diritti riservati.
+                </div>
+
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label className="form-label">Username</label>

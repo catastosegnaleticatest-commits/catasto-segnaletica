@@ -30,9 +30,10 @@
     "globals": "^16.5.0",
     "vite": "^7.2.4"
   },
-  "description": "This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.",
+  "description": "Applicazione web per la gestione del catasto della segnaletica stradale",
   "main": "eslint.config.js",
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "keywords": ["catasto", "segnaletica", "stradale"],
+  "author": "[Il Tuo Nome]",
+  "license": "UNLICENSED",
+  "private": true
 }
