@@ -1,10 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import localStorageService from '../services/localStorage';
 import apiService from '../services/api';
 
 function DesktopSignDetails({ sign, onBack }) {
-    const [photo, setPhoto] = useState(null);
+    const [photos, setPhotos] = useState([]);
+    const [photosData, setPhotosData] = useState([]); // Array di {id, dataUrl}
+    const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = useRef(null);
 
     // Verifica che il segnale sia valido
     if (!sign || !sign.id) {
@@ -23,31 +27,103 @@ function DesktopSignDetails({ sign, onBack }) {
     }
 
     useEffect(() => {
-        loadPhoto();
+        loadPhotos();
     }, [sign.id]);
 
-    const loadPhoto = async () => {
+    const loadPhotos = async () => {
+        setLoading(true);
         try {
             // Prima prova da locale
             const localPhoto = await localStorageService.getPhoto(sign.id);
             if (localPhoto) {
-                setPhoto(localPhoto);
+                setPhotosData([{ id: 'local', dataUrl: localPhoto }]);
                 setLoading(false);
                 return;
             }
             
-            // Se non c'è locale, prova dal server
-            const serverPhoto = await apiService.getPhotoAsDataUrl(sign.id);
-            if (serverPhoto) {
-                setPhoto(serverPhoto);
+            // Carica tutte le foto dal server
+            const serverPhotos = await apiService.getSignPhotos(sign.id);
+            
+            if (serverPhotos && serverPhotos.length > 0) {
+                setPhotos(serverPhotos);
+                
+                // Carica le immagini come data URL
+                const photosWithData = await Promise.all(
+                    serverPhotos.map(async (photo) => {
+                        const dataUrl = await apiService.getPhotoByIdAsDataUrl(photo.id);
+                        return { ...photo, dataUrl };
+                    })
+                );
+                
+                setPhotosData(photosWithData.filter(p => p.dataUrl));
             } else {
-                setPhoto(null);
+                setPhotosData([]);
             }
         } catch (error) {
             console.error('Errore caricamento foto:', error);
-            setPhoto(null);
+            setPhotosData([]);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleFileSelect = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+            await handleUpload(reader.result);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleUpload = async (dataUrl, isPrimary = false) => {
+        setUploading(true);
+        try {
+            await apiService.uploadPhoto(sign.id, dataUrl, isPrimary);
+            await loadPhotos(); // Ricarica le foto
+            if (isPrimary) {
+                setSelectedPhotoIndex(0); // Seleziona la foto primaria
+            }
+        } catch (error) {
+            console.error('Errore upload foto:', error);
+            alert('Errore nel caricamento della foto: ' + error.message);
+        } finally {
+            setUploading(false);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
+
+    const handleDeletePhoto = async (photoId, index) => {
+        if (!confirm('Sei sicuro di voler eliminare questa foto?')) {
+            return;
+        }
+
+        try {
+            await apiService.deletePhoto(photoId);
+            await loadPhotos();
+            
+            // Aggiusta l'indice se necessario
+            if (selectedPhotoIndex >= photosData.length - 1) {
+                setSelectedPhotoIndex(Math.max(0, photosData.length - 2));
+            }
+        } catch (error) {
+            console.error('Errore eliminazione foto:', error);
+            alert('Errore nell\'eliminazione della foto: ' + error.message);
+        }
+    };
+
+    const handleSetPrimary = async (photoId) => {
+        try {
+            await apiService.setPrimaryPhoto(photoId);
+            await loadPhotos();
+            setSelectedPhotoIndex(0); // Seleziona la foto primaria
+        } catch (error) {
+            console.error('Errore impostazione foto primaria:', error);
+            alert('Errore nell\'impostazione della foto primaria: ' + error.message);
         }
     };
 
@@ -72,6 +148,8 @@ function DesktopSignDetails({ sign, onBack }) {
         return colors[status] || '#6b7280';
     };
 
+    const currentPhoto = photosData[selectedPhotoIndex];
+
     return (
         <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--gray-200)', paddingBottom: '1rem' }}>
@@ -94,32 +172,139 @@ function DesktopSignDetails({ sign, onBack }) {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                {/* Colonna Sinistra: Foto e Mappa */}
+                {/* Colonna Sinistra: Galleria Foto */}
                 <div>
                     <div style={{ marginBottom: '1.5rem' }}>
-                        <h3 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem' }}>Foto Segnale</h3>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h3 style={{ fontSize: '1.125rem', fontWeight: '600', margin: 0 }}>
+                                Foto Segnale {photosData.length > 0 && `(${photosData.length})`}
+                            </h3>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    style={{ display: 'none' }}
+                                    onChange={handleFileSelect}
+                                />
+                                <button
+                                    className="btn btn-sm btn-primary"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploading}
+                                >
+                                    {uploading ? '⏳ Caricamento...' : '📷 Carica Foto'}
+                                </button>
+                            </div>
+                        </div>
+
                         {loading ? (
                             <div style={{ height: '300px', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--border-radius)' }}>
                                 <div className="spinner"></div>
                             </div>
-                        ) : photo ? (
-                            <img
-                                src={photo}
-                                alt="Segnale"
-                                style={{
-                                    width: '100%',
-                                    maxHeight: '400px',
-                                    objectFit: 'contain',
-                                    borderRadius: 'var(--border-radius)',
-                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                                    background: '#f3f4f6'
-                                }}
-                                onError={(e) => {
-                                    e.target.onerror = null;
-                                    // Placeholder SVG locale (grigio con testo)
-                                    e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KIDxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNmM2Y0ZjYiLz4KIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiM2YjcyODAiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkZvdG8gbm9uIGRpc3BvbmliaWxlPC90ZXh0Pgo8L3N2Zz4=';
-                                }}
-                            />
+                        ) : photosData.length > 0 ? (
+                            <>
+                                {/* Foto principale */}
+                                <div style={{ position: 'relative', marginBottom: '1rem' }}>
+                                    <img
+                                        src={currentPhoto.dataUrl}
+                                        alt={`Segnale ${selectedPhotoIndex + 1}`}
+                                        style={{
+                                            width: '100%',
+                                            maxHeight: '400px',
+                                            objectFit: 'contain',
+                                            borderRadius: 'var(--border-radius)',
+                                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                            background: '#f3f4f6'
+                                        }}
+                                        onError={(e) => {
+                                            e.target.onerror = null;
+                                            e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KIDxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNmM2Y0ZjYiLz4KIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiM2YjcyODAiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkZvdG8gbm9uIGRpc3BvbmliaWxlPC90ZXh0Pgo8L3N2Zz4=';
+                                        }}
+                                    />
+                                    
+                                    {/* Controlli foto */}
+                                    {photosData.length > 1 && (
+                                        <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '0.5rem' }}>
+                                            <button
+                                                className="btn btn-sm btn-secondary"
+                                                onClick={() => setSelectedPhotoIndex((prev) => (prev > 0 ? prev - 1 : photosData.length - 1))}
+                                                style={{ background: 'rgba(255,255,255,0.9)', border: 'none' }}
+                                            >
+                                                ←
+                                            </button>
+                                            <button
+                                                className="btn btn-sm btn-secondary"
+                                                onClick={() => setSelectedPhotoIndex((prev) => (prev < photosData.length - 1 ? prev + 1 : 0))}
+                                                style={{ background: 'rgba(255,255,255,0.9)', border: 'none' }}
+                                            >
+                                                →
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Indicatore foto primaria */}
+                                    {currentPhoto.is_primary && (
+                                        <div style={{ position: 'absolute', top: '10px', left: '10px', background: '#10b981', color: 'white', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600' }}>
+                                            ⭐ Primaria
+                                        </div>
+                                    )}
+
+                                    {/* Azioni foto */}
+                                    <div style={{ position: 'absolute', bottom: '10px', right: '10px', display: 'flex', gap: '0.5rem' }}>
+                                        {!currentPhoto.is_primary && currentPhoto.id !== 'local' && (
+                                            <button
+                                                className="btn btn-sm btn-secondary"
+                                                onClick={() => handleSetPrimary(currentPhoto.id)}
+                                                style={{ background: 'rgba(255,255,255,0.9)', border: 'none' }}
+                                                title="Imposta come primaria"
+                                            >
+                                                ⭐
+                                            </button>
+                                        )}
+                                        {currentPhoto.id !== 'local' && (
+                                            <button
+                                                className="btn btn-sm btn-danger"
+                                                onClick={() => handleDeletePhoto(currentPhoto.id, selectedPhotoIndex)}
+                                                style={{ background: 'rgba(239,68,68,0.9)', color: 'white', border: 'none' }}
+                                                title="Elimina foto"
+                                            >
+                                                🗑️
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Miniature */}
+                                {photosData.length > 1 && (
+                                    <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+                                        {photosData.map((photo, index) => (
+                                            <div
+                                                key={photo.id || index}
+                                                onClick={() => setSelectedPhotoIndex(index)}
+                                                style={{
+                                                    minWidth: '80px',
+                                                    height: '80px',
+                                                    borderRadius: '4px',
+                                                    overflow: 'hidden',
+                                                    cursor: 'pointer',
+                                                    border: selectedPhotoIndex === index ? '3px solid var(--primary)' : '2px solid transparent',
+                                                    opacity: selectedPhotoIndex === index ? 1 : 0.7
+                                                }}
+                                            >
+                                                <img
+                                                    src={photo.dataUrl}
+                                                    alt={`Miniatura ${index + 1}`}
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        objectFit: 'cover'
+                                                    }}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
                         ) : (
                             <div style={{
                                 padding: '3rem',
@@ -128,7 +313,16 @@ function DesktopSignDetails({ sign, onBack }) {
                                 textAlign: 'center',
                                 color: 'var(--gray-500)'
                             }}>
-                                Nessuna foto disponibile
+                                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📷</div>
+                                <p>Nessuna foto disponibile</p>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    style={{ marginTop: '1rem' }}
+                                    disabled={uploading}
+                                >
+                                    {uploading ? '⏳ Caricamento...' : 'Carica la prima foto'}
+                                </button>
                             </div>
                         )}
                     </div>

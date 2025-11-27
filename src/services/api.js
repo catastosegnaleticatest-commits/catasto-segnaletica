@@ -153,6 +153,16 @@ class ApiService {
         return `${API_URL}/api/signs/${signId}/photo`;
     }
 
+    // Ottieni tutte le foto di un segnale
+    async getSignPhotos(signId) {
+        const response = await fetch(`${API_URL}/api/signs/${signId}/photos`, {
+            headers: this.getHeaders()
+        });
+
+        if (!response.ok) throw new Error('Errore nel recupero delle foto');
+        return await response.json();
+    }
+
     // Carica foto dal server come blob e converte in data URL
     async getPhotoAsDataUrl(signId) {
         try {
@@ -175,6 +185,79 @@ class ApiService {
             console.error('Errore caricamento foto dal server:', error);
             return null;
         }
+    }
+
+    // Carica foto specifica per ID
+    async getPhotoByIdAsDataUrl(photoId) {
+        try {
+            const response = await fetch(`${API_URL}/api/photos/${photoId}`, {
+                headers: this.getHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error('Foto non trovata');
+            }
+
+            const blob = await response.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        } catch (error) {
+            console.error('Errore caricamento foto:', error);
+            return null;
+        }
+    }
+
+    // Carica una nuova foto per un segnale
+    async uploadPhoto(signId, photoDataUrl, isPrimary = false) {
+        const response = await fetch(`${API_URL}/api/signs/${signId}/photos`, {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify({
+                photo: photoDataUrl, // Invia il data URL, il server lo crittografa
+                is_primary: isPrimary
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Errore nel caricamento della foto');
+        }
+
+        return await response.json();
+    }
+
+    // Elimina una foto
+    async deletePhoto(photoId) {
+        const response = await fetch(`${API_URL}/api/photos/${photoId}`, {
+            method: 'DELETE',
+            headers: this.getHeaders()
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Errore nell\'eliminazione della foto');
+        }
+
+        return await response.json();
+    }
+
+    // Imposta foto primaria
+    async setPrimaryPhoto(photoId) {
+        const response = await fetch(`${API_URL}/api/photos/${photoId}/primary`, {
+            method: 'PUT',
+            headers: this.getHeaders()
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Errore nell\'aggiornamento della foto primaria');
+        }
+
+        return await response.json();
     }
 
     // === INTERVENTIONS ===

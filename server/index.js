@@ -55,6 +55,29 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+// Funzione per crittografare foto (da data URL)
+function encryptPhoto(dataUrl) {
+    // Converti data URL in buffer
+    const base64Data = dataUrl.split(',')[1];
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+    
+    // Genera IV random
+    const iv = crypto.randomBytes(16);
+    
+    // Crea cipher
+    const key = Buffer.from(ENCRYPTION_KEY.padEnd(32).slice(0, 32));
+    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+    
+    // Crittografa
+    let encrypted = cipher.update(imageBuffer);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    
+    return {
+        data: encrypted.toString('hex'),
+        iv: iv.toString('hex')
+    };
+}
+
 // Funzione per decrittografare foto
 function decryptPhoto(encryptedData, ivHex) {
     const iv = Buffer.from(ivHex, 'hex');
@@ -419,16 +442,49 @@ app.delete('/api/signs/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// === PHOTOS ===
+// Ottieni tutte le foto di un segnale
+app.get('/api/signs/:id/photos', authenticateToken, async (req, res) => {
+    try {
+        const result = await query(
+            `SELECT id, sign_id, photo_path, uploaded_at, is_primary, display_order
+             FROM sign_photos 
+             WHERE sign_id = $1 
+             ORDER BY is_primary DESC, display_order ASC, uploaded_at ASC`,
+            [req.params.id]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching photos:', error);
+        res.status(500).json({ error: 'Errore nel recupero delle foto' });
+    }
+});
+
+// Ottieni una foto specifica (per compatibilità con vecchio codice)
 app.get('/api/signs/:id/photo', authenticateToken, async (req, res) => {
     try {
-        const result = await query('SELECT photo_path FROM signs WHERE id = $1', [req.params.id]);
-        const sign = result.rows[0];
+        // Prima prova dalla nuova tabella sign_photos
+        const photosResult = await query(
+            'SELECT photo_path FROM sign_photos WHERE sign_id = $1 ORDER BY is_primary DESC, display_order ASC LIMIT 1',
+            [req.params.id]
+        );
 
-        if (!sign || !sign.photo_path || !fs.existsSync(sign.photo_path)) {
+        let photoPath = null;
+        if (photosResult.rows.length > 0) {
+            photoPath = photosResult.rows[0].photo_path;
+        } else {
+            // Fallback alla vecchia tabella signs
+            const result = await query('SELECT photo_path FROM signs WHERE id = $1', [req.params.id]);
+            if (result.rows[0] && result.rows[0].photo_path) {
+                photoPath = result.rows[0].photo_path;
+            }
+        }
+
+        if (!photoPath || !fs.existsSync(photoPath)) {
             return res.status(404).json({ error: 'Foto non trovata' });
         }
 
-        const encrypted = JSON.parse(fs.readFileSync(sign.photo_path, 'utf8'));
+        const encrypted = JSON.parse(fs.readFileSync(photoPath, 'utf8'));
         const decrypted = decryptPhoto(encrypted.data, encrypted.iv);
 
         res.set('Content-Type', 'image/jpeg');
@@ -436,6 +492,137 @@ app.get('/api/signs/:id/photo', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Error reading photo:', error);
         res.status(500).json({ error: 'Errore lettura foto' });
+    }
+});
+
+// Ottieni una foto specifica per ID
+app.get('/api/photos/:photoId', authenticateToken, async (req, res) => {
+    try {
+        const result = await query('SELECT photo_path FROM sign_photos WHERE id = $1', [req.params.photoId]);
+        const photo = result.rows[0];
+
+        if (!photo || !photo.photo_path || !fs.existsSync(photo.photo_path)) {
+            return res.status(404).json({ error: 'Foto non trovata' });
+        }
+
+        const encrypted = JSON.parse(fs.readFileSync(photo.photo_path, 'utf8'));
+        const decrypted = decryptPhoto(encrypted.data, encrypted.iv);
+
+        res.set('Content-Type', 'image/jpeg');
+        res.send(decrypted);
+    } catch (error) {
+        console.error('Error reading photo:', error);
+        res.status(500).json({ error: 'Errore lettura foto' });
+    }
+});
+
+// Carica una nuova foto per un segnale
+app.post('/api/signs/:id/photos', authenticateToken, async (req, res) => {
+    try {
+        const { photo, is_primary } = req.body;
+        const signId = parseInt(req.params.id);
+
+        // Verifica che il segnale esista
+        const signCheck = await query('SELECT id FROM signs WHERE id = $1', [signId]);
+        if (signCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Segnale non trovato' });
+        }
+
+        let encryptedPhoto;
+        
+        // Se la foto è già crittografata (dal mobile), usa quella
+        if (photo && photo.data && photo.iv) {
+            encryptedPhoto = photo;
+        } 
+        // Se è un data URL (dal desktop), crittografalo
+        else if (photo && typeof photo === 'string' && photo.startsWith('data:image/')) {
+            encryptedPhoto = encryptPhoto(photo);
+        }
+        // Se è un oggetto con data (data URL come stringa)
+        else if (photo && photo.data && typeof photo.data === 'string' && photo.data.startsWith('data:image/')) {
+            encryptedPhoto = encryptPhoto(photo.data);
+        }
+        else {
+            return res.status(400).json({ error: 'Formato foto non valido' });
+        }
+
+        // Salva foto crittografata
+        const photoFileName = `sign-${signId}-${Date.now()}.json`;
+        const photoPath = path.join(photosDir, photoFileName);
+        fs.writeFileSync(photoPath, JSON.stringify(encryptedPhoto));
+
+        // Se questa è la foto primaria, rimuovi il flag dalle altre
+        if (is_primary) {
+            await query('UPDATE sign_photos SET is_primary = false WHERE sign_id = $1', [signId]);
+        }
+
+        // Ottieni il prossimo display_order
+        const maxOrderResult = await query(
+            'SELECT COALESCE(MAX(display_order), 0) as max_order FROM sign_photos WHERE sign_id = $1',
+            [signId]
+        );
+        const nextOrder = (maxOrderResult.rows[0]?.max_order || 0) + 1;
+
+        // Inserisci nella tabella sign_photos
+        const result = await query(
+            `INSERT INTO sign_photos (sign_id, photo_path, uploaded_by, is_primary, display_order)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING *`,
+            [signId, photoPath, req.user.id, is_primary || false, nextOrder]
+        );
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error uploading photo:', error);
+        res.status(500).json({ error: 'Errore nel caricamento della foto' });
+    }
+});
+
+// Elimina una foto
+app.delete('/api/photos/:photoId', authenticateToken, async (req, res) => {
+    try {
+        const result = await query('SELECT photo_path, sign_id FROM sign_photos WHERE id = $1', [req.params.photoId]);
+        const photo = result.rows[0];
+
+        if (!photo) {
+            return res.status(404).json({ error: 'Foto non trovata' });
+        }
+
+        // Elimina il file fisico
+        if (photo.photo_path && fs.existsSync(photo.photo_path)) {
+            fs.unlinkSync(photo.photo_path);
+        }
+
+        // Elimina dal database
+        await query('DELETE FROM sign_photos WHERE id = $1', [req.params.photoId]);
+
+        res.json({ message: 'Foto eliminata con successo' });
+    } catch (error) {
+        console.error('Error deleting photo:', error);
+        res.status(500).json({ error: 'Errore nell\'eliminazione della foto' });
+    }
+});
+
+// Imposta foto primaria
+app.put('/api/photos/:photoId/primary', authenticateToken, async (req, res) => {
+    try {
+        const result = await query('SELECT sign_id FROM sign_photos WHERE id = $1', [req.params.photoId]);
+        const photo = result.rows[0];
+
+        if (!photo) {
+            return res.status(404).json({ error: 'Foto non trovata' });
+        }
+
+        // Rimuovi il flag primario da tutte le foto del segnale
+        await query('UPDATE sign_photos SET is_primary = false WHERE sign_id = $1', [photo.sign_id]);
+
+        // Imposta questa come primaria
+        await query('UPDATE sign_photos SET is_primary = true WHERE id = $1', [req.params.photoId]);
+
+        res.json({ message: 'Foto primaria aggiornata' });
+    } catch (error) {
+        console.error('Error setting primary photo:', error);
+        res.status(500).json({ error: 'Errore nell\'aggiornamento della foto primaria' });
     }
 });
 

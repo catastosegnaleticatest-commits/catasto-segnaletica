@@ -43,7 +43,28 @@ function SignTooltip({ sign, position, onOpenDetails, onClose, onMouseEnter, onM
                     return;
                 }
                 
-                // Se non c'è locale, prova dal server
+                // Prova a caricare la prima foto dal server (nuova API)
+                try {
+                    const photos = await apiService.getSignPhotos(sign.id);
+                    if (photos && photos.length > 0) {
+                        // Ordina per primaria e display_order
+                        const sortedPhotos = photos.sort((a, b) => {
+                            if (a.is_primary && !b.is_primary) return -1;
+                            if (!a.is_primary && b.is_primary) return 1;
+                            return (a.display_order || 0) - (b.display_order || 0);
+                        });
+                        const firstPhoto = await apiService.getPhotoByIdAsDataUrl(sortedPhotos[0].id);
+                        if (firstPhoto) {
+                            setPhoto(firstPhoto);
+                            setLoading(false);
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.log('Nuova API foto non disponibile, provo vecchia API');
+                }
+                
+                // Fallback alla vecchia API
                 const serverPhoto = await apiService.getPhotoAsDataUrl(sign.id);
                 if (serverPhoto) {
                     setPhoto(serverPhoto);
@@ -161,7 +182,28 @@ function SignPopupContent({ sign, onOpenDetails }) {
                     return;
                 }
                 
-                // Se non c'è locale, prova dal server
+                // Prova a caricare la prima foto dal server (nuova API)
+                try {
+                    const photos = await apiService.getSignPhotos(sign.id);
+                    if (photos && photos.length > 0) {
+                        // Ordina per primaria e display_order
+                        const sortedPhotos = photos.sort((a, b) => {
+                            if (a.is_primary && !b.is_primary) return -1;
+                            if (!a.is_primary && b.is_primary) return 1;
+                            return (a.display_order || 0) - (b.display_order || 0);
+                        });
+                        const firstPhoto = await apiService.getPhotoByIdAsDataUrl(sortedPhotos[0].id);
+                        if (firstPhoto) {
+                            setPhoto(firstPhoto);
+                            setLoading(false);
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.log('Nuova API foto non disponibile, provo vecchia API');
+                }
+                
+                // Fallback alla vecchia API
                 const serverPhoto = await apiService.getPhotoAsDataUrl(sign.id);
                 if (serverPhoto) {
                     setPhoto(serverPhoto);
