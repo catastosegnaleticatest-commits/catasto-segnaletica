@@ -519,12 +519,21 @@ app.get('/api/photos/:photoId', authenticateToken, async (req, res) => {
 // Carica una nuova foto per un segnale
 app.post('/api/signs/:id/photos', authenticateToken, async (req, res) => {
     try {
+        console.log(`📸 Upload foto richiesto per segnale ${req.params.id}`);
         const { photo, is_primary } = req.body;
         const signId = parseInt(req.params.id);
+
+        if (!photo) {
+            console.log('❌ Foto non fornita nel body');
+            return res.status(400).json({ error: 'Foto non fornita' });
+        }
+
+        console.log(`📝 Tipo foto ricevuta: ${typeof photo}, is_primary: ${is_primary}`);
 
         // Verifica che il segnale esista
         const signCheck = await query('SELECT id FROM signs WHERE id = $1', [signId]);
         if (signCheck.rows.length === 0) {
+            console.log(`❌ Segnale ${signId} non trovato`);
             return res.status(404).json({ error: 'Segnale non trovato' });
         }
 
@@ -532,28 +541,36 @@ app.post('/api/signs/:id/photos', authenticateToken, async (req, res) => {
         
         // Se la foto è già crittografata (dal mobile), usa quella
         if (photo && photo.data && photo.iv) {
+            console.log('✅ Foto già crittografata (dal mobile)');
             encryptedPhoto = photo;
         } 
         // Se è un data URL (dal desktop), crittografalo
         else if (photo && typeof photo === 'string' && photo.startsWith('data:image/')) {
+            console.log('🔐 Crittografando data URL...');
             encryptedPhoto = encryptPhoto(photo);
+            console.log('✅ Foto crittografata');
         }
         // Se è un oggetto con data (data URL come stringa)
         else if (photo && photo.data && typeof photo.data === 'string' && photo.data.startsWith('data:image/')) {
+            console.log('🔐 Crittografando data URL da oggetto...');
             encryptedPhoto = encryptPhoto(photo.data);
+            console.log('✅ Foto crittografata');
         }
         else {
-            return res.status(400).json({ error: 'Formato foto non valido' });
+            console.log(`❌ Formato foto non valido: ${typeof photo}, keys: ${photo ? Object.keys(photo).join(',') : 'null'}`);
+            return res.status(400).json({ error: 'Formato foto non valido. Atteso: data URL stringa o oggetto con data/iv' });
         }
 
         // Salva foto crittografata
         const photoFileName = `sign-${signId}-${Date.now()}.json`;
         const photoPath = path.join(photosDir, photoFileName);
         fs.writeFileSync(photoPath, JSON.stringify(encryptedPhoto));
+        console.log(`💾 Foto salvata in: ${photoPath}`);
 
         // Se questa è la foto primaria, rimuovi il flag dalle altre
         if (is_primary) {
             await query('UPDATE sign_photos SET is_primary = false WHERE sign_id = $1', [signId]);
+            console.log('⭐ Foto impostata come primaria');
         }
 
         // Ottieni il prossimo display_order
@@ -571,10 +588,12 @@ app.post('/api/signs/:id/photos', authenticateToken, async (req, res) => {
             [signId, photoPath, req.user.id, is_primary || false, nextOrder]
         );
 
+        console.log(`✅ Foto caricata con successo, ID: ${result.rows[0].id}`);
         res.json(result.rows[0]);
     } catch (error) {
-        console.error('Error uploading photo:', error);
-        res.status(500).json({ error: 'Errore nel caricamento della foto' });
+        console.error('❌ Error uploading photo:', error);
+        console.error('Stack:', error.stack);
+        res.status(500).json({ error: 'Errore nel caricamento della foto', details: error.message });
     }
 });
 
@@ -730,6 +749,16 @@ io.on('connection', (socket) => {
     });
 });
 
+// Middleware per gestire errori 404 per tutte le richieste API non trovate (PRIMA del catch-all)
+app.use((req, res, next) => {
+    if (req.path.startsWith('/api/') && req.method !== 'GET') {
+        // Per richieste POST/PUT/DELETE API non trovate
+        console.log(`⚠️ Richiesta API non gestita: ${req.method} ${req.path}`);
+        return res.status(404).json({ error: 'Endpoint API non trovato', path: req.path, method: req.method });
+    }
+    next();
+});
+
 // SERVI FILE STATICI DEL FRONTEND (Per Render)
 const distPath = path.join(__dirname, '../dist');
 if (fs.existsSync(distPath)) {
@@ -746,14 +775,6 @@ if (fs.existsSync(distPath)) {
 } else {
     console.log('⚠️ Cartella dist non trovata. Frontend non servito dal backend.');
 }
-
-// Middleware per gestire errori 404 per tutte le richieste API non trovate
-app.use((req, res, next) => {
-    if (req.path.startsWith('/api/')) {
-        return res.status(404).json({ error: 'Endpoint API non trovato', path: req.path });
-    }
-    next();
-});
 
 // Avvia server
 httpServer.listen(PORT, '0.0.0.0', () => {
