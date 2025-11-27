@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import syncService from '../services/sync';
+import localStorageService from '../services/localStorage';
 import MobileMapView from './MobileMapView';
 import MobileAddSign from './MobileAddSign';
 import MobileArchive from './MobileArchive';
@@ -7,10 +9,28 @@ import MobileSignDetails from './MobileSignDetails';
 function MobileHome({ user, syncStatus, stats, onDataChange }) {
     const [currentView, setCurrentView] = useState('home');
     const [selectedSign, setSelectedSign] = useState(null);
+    const [isSyncing, setIsSyncing] = useState(false);
 
     const handleOpenDetails = (sign) => {
         setSelectedSign(sign);
         setCurrentView('details');
+    };
+
+    const handleForceSync = async () => {
+        if (!confirm('Vuoi forzare il caricamento di tutti i dati locali sul server?')) return;
+
+        setIsSyncing(true);
+        try {
+            await localStorageService.resetSyncStatus();
+            await syncService.fullSync();
+            if (onDataChange) onDataChange();
+            alert('Sincronizzazione completata!');
+        } catch (error) {
+            console.error('Errore sync:', error);
+            alert('Errore durante la sincronizzazione: ' + error.message);
+        } finally {
+            setIsSyncing(false);
+        }
     };
 
     if (currentView === 'map') {
@@ -109,6 +129,22 @@ function MobileHome({ user, syncStatus, stats, onDataChange }) {
                     </div>
                 </div>
             )}
+
+            {/* Force Sync Button */}
+            <button
+                onClick={handleForceSync}
+                disabled={isSyncing}
+                className="btn"
+                style={{
+                    width: '100%',
+                    marginBottom: '1rem',
+                    background: isSyncing ? '#ccc' : 'var(--success)',
+                    color: 'white',
+                    padding: '0.75rem'
+                }}
+            >
+                {isSyncing ? '⏳ Sincronizzazione...' : '🔄 Ricarica Dati'}
+            </button>
 
             {/* Menu Principale */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

@@ -134,9 +134,14 @@ class SyncService {
 
         try {
             // Verifica connessione server
-            const isOnline = await this.checkServerStatus();
-            if (!isOnline) {
-                throw new Error('Server non raggiungibile');
+            const serverStatus = await apiService.getServerStatus();
+            this.notifyStatusChange({ online: true, ...serverStatus });
+
+            // CHECK: Se il server è vuoto ma noi abbiamo dati, forza il re-upload
+            const localStats = await localStorageService.getStats();
+            if (serverStatus.totalSigns === 0 && localStats.totalSigns > 0) {
+                console.warn('⚠️ Rilevato reset del server! Forzo il re-upload dei dati locali...');
+                await localStorageService.resetSyncStatus();
             }
 
             // 1. Upload dati locali non sincronizzati

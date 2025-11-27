@@ -1,129 +1,67 @@
 import express from 'express';
 import cors from 'cors';
-import { createServer } from 'http';
-import { Server } from 'socket.io';
-import Database from 'better-sqlite3';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import multer from 'multer';
-import crypto from 'crypto';
-import fs from 'fs';
 import path from 'path';
+import fs from 'fs';
+import http from 'http';
+import { Server } from 'socket.io';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
+import { query } from './db.js'; // Modulo PostgreSQL
 import dotenv from 'dotenv';
-
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
-const httpServer = createServer(app);
+const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
     cors: {
         origin: "*",
-        methods: ["GET", "POST"]
+        methods: ["GET", "POST", "PUT", "DELETE"]
     }
 });
 
-// Configurazione
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-change-in-prod';
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'catasto-segnaletica-key-2024';
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
-// Crea directory necessarie
+// Cartelle dati (per foto temporanee o cache, ma il DB è esterno ora)
 const dataDir = path.join(__dirname, 'data');
 const photosDir = path.join(dataDir, 'photos');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-if (!fs.existsSync(photosDir)) fs.mkdirSync(photosDir, { recursive: true });
 
-// Inizializza database SQLite
-const db = new Database(path.join(dataDir, 'catasto.db'));
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
+if (!fs.existsSync(photosDir)) fs.mkdirSync(photosDir);
 
-// Crea tabelle
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    role TEXT DEFAULT 'mobile',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+// === UTILS ===
 
-  CREATE TABLE IF NOT EXISTS signs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    type TEXT NOT NULL,
-    latitude REAL NOT NULL,
-    longitude REAL NOT NULL,
-    photo_path TEXT,
-    photo_encrypted BOOLEAN DEFAULT 1,
-    status TEXT DEFAULT 'buono',
-    installation_date TEXT,
-    notes TEXT,
-    created_by INTEGER,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    synced BOOLEAN DEFAULT 0,
-    FOREIGN KEY (created_by) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS interventions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    sign_id INTEGER NOT NULL,
-    type TEXT NOT NULL,
-    scheduled_date TEXT,
-    completed_date TEXT,
-    status TEXT DEFAULT 'programmato',
-    cost REAL,
-    notes TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (sign_id) REFERENCES signs(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS sync_queue (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    device_id TEXT NOT NULL,
-    operation TEXT NOT NULL,
-    table_name TEXT NOT NULL,
-    record_id INTEGER,
-    data TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    processed BOOLEAN DEFAULT 0
-  );
-`);
-
-// Crea utente admin di default se non esiste
-const adminExists = db.prepare('SELECT id FROM users WHERE username = ?').get('admin');
-if (!adminExists) {
-    const hashedPassword = await bcrypt.hash('admin123', 10);
-    db.prepare('INSERT INTO users (username, password, role) VALUES (?, ?, ?)').run('admin', hashedPassword, 'admin');
-    console.log('✅ Utente admin creato (username: admin, password: admin123)');
-}
-
-// Funzioni di crittografia per foto
 function encryptPhoto(buffer) {
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'hex').slice(0, 32), iv);
-    const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
+    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY.padEnd(32).slice(0, 32)), iv);
+    let encrypted = cipher.update(buffer);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
     return { iv: iv.toString('hex'), data: encrypted.toString('hex') };
 }
 
 function decryptPhoto(encryptedData, ivHex) {
-    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'hex').slice(0, 32), Buffer.from(ivHex, 'hex'));
-    const decrypted = Buffer.concat([decipher.update(Buffer.from(encryptedData, 'hex')), decipher.final()]);
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY.padEnd(32).slice(0, 32)), iv);
+    let decrypted = decipher.update(Buffer.from(encryptedData, 'hex'));
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
     return decrypted;
 }
 
-// Middleware autenticazione
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     let token = authHeader && authHeader.split(' ')[1];
 
-    // Supporto per token in query string (es. per immagini)
     if (!token && req.query.token) {
         token = req.query.token;
     }
@@ -143,17 +81,23 @@ function authenticateToken(req, res, next) {
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
 
-    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
-    if (!user) return res.status(400).json({ error: 'Utente non trovato' });
+    try {
+        const result = await query('SELECT * FROM users WHERE username = $1', [username]);
+        const user = result.rows[0];
 
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) return res.status(400).json({ error: 'Password errata' });
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            return res.status(401).json({ error: 'Credenziali non valide' });
+        }
 
-    const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
+        const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+        res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Errore server' });
+    }
 });
 
-// Registrazione nuovo utente (solo admin)
+// Registrazione (solo admin)
 app.post('/api/auth/register', authenticateToken, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Non autorizzato' });
 
@@ -161,85 +105,52 @@ app.post('/api/auth/register', authenticateToken, async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     try {
-        const result = db.prepare('INSERT INTO users (username, password, role) VALUES (?, ?, ?)').run(username, hashedPassword, role || 'mobile');
-        res.json({ id: result.lastInsertRowid, username, role });
+        const result = await query(
+            'INSERT INTO users (username, password, role) VALUES ($1, $2, $3) RETURNING id, username, role',
+            [username, hashedPassword, role || 'mobile']
+        );
+        res.json(result.rows[0]);
     } catch (error) {
-        res.status(400).json({ error: 'Username già esistente' });
+        if (error.code === '23505') { // Unique violation
+            res.status(400).json({ error: 'Username già esistente' });
+        } else {
+            res.status(500).json({ error: 'Errore server' });
+        }
     }
 });
 
-// === USER MANAGEMENT (Admin only) ===
-
-// Get all users
-app.get('/api/users', authenticateToken, (req, res) => {
+// === USERS ===
+app.get('/api/users', authenticateToken, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Non autorizzato' });
-
-    const users = db.prepare('SELECT id, username, role, created_at FROM users ORDER BY created_at DESC').all();
-    res.json(users);
-});
-
-// Update user role
-app.put('/api/users/:id', authenticateToken, async (req, res) => {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Non autorizzato' });
-
-    const { role } = req.body;
-    const userId = req.params.id;
-
-    try {
-        db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, userId);
-        res.json({ success: true, message: 'Ruolo aggiornato' });
-    } catch (error) {
-        res.status(400).json({ error: 'Errore aggiornamento utente' });
-    }
-});
-
-// Delete user
-app.delete('/api/users/:id', authenticateToken, (req, res) => {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Non autorizzato' });
-
-    const userId = req.params.id;
-
-    // Prevent deleting self
-    if (parseInt(userId) === req.user.id) {
-        return res.status(400).json({ error: 'Non puoi eliminare il tuo stesso account' });
-    }
-
-    try {
-        db.prepare('DELETE FROM users WHERE id = ?').run(userId);
-        res.json({ success: true, message: 'Utente eliminato' });
-    } catch (error) {
-        res.status(400).json({ error: 'Errore eliminazione utente' });
-    }
+    const result = await query('SELECT id, username, role, created_at FROM users ORDER BY created_at DESC');
+    res.json(result.rows);
 });
 
 // === SIGNS ===
-
-
-// Ottieni tutti i segnali
-app.get('/api/signs', authenticateToken, (req, res) => {
-    const signs = db.prepare(`
-        SELECT s.*, u.username as creator_username 
-        FROM signs s 
-        LEFT JOIN users u ON s.created_by = u.id 
-        ORDER BY s.created_at DESC
-    `).all();
-    res.json(signs);
+app.get('/api/signs', authenticateToken, async (req, res) => {
+    try {
+        const result = await query(`
+            SELECT s.*, u.username as creator_username 
+            FROM signs s 
+            LEFT JOIN users u ON s.created_by = u.id 
+            ORDER BY s.created_at DESC
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error getting signs:', error);
+        res.status(500).json({ error: 'Errore server' });
+    }
 });
 
-// Ottieni singolo segnale
-app.get('/api/signs/:id', authenticateToken, (req, res) => {
-    const sign = db.prepare('SELECT * FROM signs WHERE id = ?').get(req.params.id);
-    if (!sign) return res.status(404).json({ error: 'Segnale non trovato' });
-    res.json(sign);
-});
-
-// Crea nuovo segnale
-app.post('/api/signs', authenticateToken, (req, res) => {
+app.post('/api/signs', authenticateToken, async (req, res) => {
     const { type, latitude, longitude, status, installation_date, notes, photo } = req.body;
 
     let photoPath = null;
     if (photo) {
-        // Foto in base64, crittografa e salva
+        // Nota: Con un DB esterno, idealmente le foto dovrebbero andare su S3/Supabase Storage.
+        // Per ora manteniamo il salvataggio su disco locale (che su Render è effimero) 
+        // MA dato che il DB persiste, almeno i dati testuali rimangono.
+        // TODO: Migrare foto su Storage esterno.
         const photoBuffer = Buffer.from(photo.split(',')[1], 'base64');
         const encrypted = encryptPhoto(photoBuffer);
         const filename = `${Date.now()}_${crypto.randomBytes(8).toString('hex')}.enc`;
@@ -247,143 +158,136 @@ app.post('/api/signs', authenticateToken, (req, res) => {
         fs.writeFileSync(photoPath, JSON.stringify(encrypted));
     }
 
-    const result = db.prepare(`
-    INSERT INTO signs (type, latitude, longitude, photo_path, status, installation_date, notes, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(type, latitude, longitude, photoPath, status || 'buono', installation_date, notes, req.user.id);
+    try {
+        const result = await query(`
+            INSERT INTO signs (type, latitude, longitude, photo_path, status, installation_date, notes, created_by)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING *
+        `, [type, latitude, longitude, photoPath, status || 'buono', installation_date, notes, req.user.id]);
 
-    const newSign = db.prepare('SELECT * FROM signs WHERE id = ?').get(result.lastInsertRowid);
-
-    // Notifica via WebSocket
-    io.emit('sign:created', newSign);
-
-    res.json(newSign);
+        const newSign = result.rows[0];
+        io.emit('sign:created', newSign);
+        res.json(newSign);
+    } catch (error) {
+        console.error('Error creating sign:', error);
+        res.status(500).json({ error: 'Errore creazione segnale' });
+    }
 });
 
-// Aggiorna segnale
-app.put('/api/signs/:id', authenticateToken, (req, res) => {
+app.put('/api/signs/:id', authenticateToken, async (req, res) => {
     const { type, latitude, longitude, status, installation_date, notes } = req.body;
+    try {
+        const result = await query(`
+            UPDATE signs 
+            SET type = $1, latitude = $2, longitude = $3, status = $4, installation_date = $5, notes = $6, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $7
+            RETURNING *
+        `, [type, latitude, longitude, status, installation_date, notes, req.params.id]);
 
-    db.prepare(`
-    UPDATE signs 
-    SET type = ?, latitude = ?, longitude = ?, status = ?, installation_date = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `).run(type, latitude, longitude, status, installation_date, notes, req.params.id);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Segnale non trovato' });
 
-    const updatedSign = db.prepare('SELECT * FROM signs WHERE id = ?').get(req.params.id);
-    io.emit('sign:updated', updatedSign);
-
-    res.json(updatedSign);
+        const updatedSign = result.rows[0];
+        io.emit('sign:updated', updatedSign);
+        res.json(updatedSign);
+    } catch (error) {
+        console.error('Error updating sign:', error);
+        res.status(500).json({ error: 'Errore aggiornamento' });
+    }
 });
 
-// Elimina segnale
-app.delete('/api/signs/:id', authenticateToken, (req, res) => {
+app.delete('/api/signs/:id', authenticateToken, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Non autorizzato' });
 
-    const sign = db.prepare('SELECT * FROM signs WHERE id = ?').get(req.params.id);
-    if (sign && sign.photo_path && fs.existsSync(sign.photo_path)) {
-        fs.unlinkSync(sign.photo_path);
+    try {
+        // Recupera path foto per eliminazione
+        const signResult = await query('SELECT photo_path FROM signs WHERE id = $1', [req.params.id]);
+        const sign = signResult.rows[0];
+
+        if (sign && sign.photo_path && fs.existsSync(sign.photo_path)) {
+            fs.unlinkSync(sign.photo_path);
+        }
+
+        await query('DELETE FROM signs WHERE id = $1', [req.params.id]);
+        io.emit('sign:deleted', { id: req.params.id });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting sign:', error);
+        res.status(500).json({ error: 'Errore eliminazione' });
     }
-
-    db.prepare('DELETE FROM signs WHERE id = ?').run(req.params.id);
-    io.emit('sign:deleted', { id: req.params.id });
-
-    res.json({ success: true });
 });
 
-// Ottieni foto decrittografata
-app.get('/api/signs/:id/photo', authenticateToken, (req, res) => {
-    console.log(`📸 Richiesta foto per segnale ${req.params.id}`);
-
-    const sign = db.prepare('SELECT photo_path FROM signs WHERE id = ?').get(req.params.id);
-
-    if (!sign) {
-        console.log('❌ Segnale non trovato nel DB');
-        return res.status(404).json({ error: 'Segnale non trovato' });
-    }
-
-    if (!sign.photo_path) {
-        console.log('❌ Path foto mancante nel DB');
-        return res.status(404).json({ error: 'Foto non presente' });
-    }
-
-    if (!fs.existsSync(sign.photo_path)) {
-        console.log(`❌ File non trovato su disco: ${sign.photo_path}`);
-        return res.status(404).json({ error: 'File foto non trovato' });
-    }
-
+// Foto (rimane su disco per ora)
+app.get('/api/signs/:id/photo', authenticateToken, async (req, res) => {
     try {
+        const result = await query('SELECT photo_path FROM signs WHERE id = $1', [req.params.id]);
+        const sign = result.rows[0];
+
+        if (!sign || !sign.photo_path || !fs.existsSync(sign.photo_path)) {
+            return res.status(404).json({ error: 'Foto non trovata' });
+        }
+
         const encrypted = JSON.parse(fs.readFileSync(sign.photo_path, 'utf8'));
         const decrypted = decryptPhoto(encrypted.data, encrypted.iv);
 
-        console.log('✅ Foto decrittografata e inviata');
         res.set('Content-Type', 'image/jpeg');
         res.send(decrypted);
     } catch (error) {
-        console.error('❌ Errore decrittografia:', error);
-        res.status(500).json({ error: 'Errore decrittografia' });
+        console.error('Error reading photo:', error);
+        res.status(500).json({ error: 'Errore lettura foto' });
     }
 });
 
-// Interventi
-app.get('/api/interventions', authenticateToken, (req, res) => {
-    const interventions = db.prepare(`
-    SELECT i.*, s.type as sign_type, s.latitude, s.longitude 
-    FROM interventions i 
-    LEFT JOIN signs s ON i.sign_id = s.id 
-    ORDER BY i.scheduled_date DESC
-  `).all();
-    res.json(interventions);
+// === INTERVENTIONS ===
+app.get('/api/interventions', authenticateToken, async (req, res) => {
+    try {
+        const result = await query(`
+            SELECT i.*, s.type as sign_type, s.latitude, s.longitude 
+            FROM interventions i 
+            LEFT JOIN signs s ON i.sign_id = s.id 
+            ORDER BY i.scheduled_date DESC
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ error: 'Errore server' });
+    }
 });
 
-app.post('/api/interventions', authenticateToken, (req, res) => {
+app.post('/api/interventions', authenticateToken, async (req, res) => {
     const { sign_id, type, scheduled_date, cost, notes } = req.body;
+    try {
+        const result = await query(`
+            INSERT INTO interventions (sign_id, type, scheduled_date, cost, notes)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *
+        `, [sign_id, type, scheduled_date, cost, notes]);
 
-    const result = db.prepare(`
-    INSERT INTO interventions (sign_id, type, scheduled_date, cost, notes)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(sign_id, type, scheduled_date, cost, notes);
-
-    const newIntervention = db.prepare('SELECT * FROM interventions WHERE id = ?').get(result.lastInsertRowid);
-    io.emit('intervention:created', newIntervention);
-
-    res.json(newIntervention);
+        const newIntervention = result.rows[0];
+        io.emit('intervention:created', newIntervention);
+        res.json(newIntervention);
+    } catch (error) {
+        res.status(500).json({ error: 'Errore creazione intervento' });
+    }
 });
 
-// Stato server
-app.get('/api/status', (req, res) => {
-    const stats = {
-        totalSigns: db.prepare('SELECT COUNT(*) as count FROM signs').get().count,
-        totalInterventions: db.prepare('SELECT COUNT(*) as count FROM interventions').get().count,
-        pendingSync: db.prepare('SELECT COUNT(*) as count FROM sync_queue WHERE processed = 0').get().count,
-        serverTime: new Date().toISOString(),
-        online: true
-    };
-    res.json(stats);
+// === STATUS ===
+app.get('/api/status', async (req, res) => {
+    try {
+        const signsCount = await query('SELECT COUNT(*) as count FROM signs');
+        const intCount = await query('SELECT COUNT(*) as count FROM interventions');
+
+        res.json({
+            online: true,
+            uptime: process.uptime(),
+            totalSigns: parseInt(signsCount.rows[0].count),
+            totalInterventions: parseInt(intCount.rows[0].count),
+            serverTime: new Date().toISOString()
+        });
+    } catch (error) {
+        res.json({ online: true, error: error.message, totalSigns: 0 });
+    }
 });
 
-// WebSocket per sincronizzazione real-time
-io.on('connection', (socket) => {
-    console.log('📱 Client connesso:', socket.id);
-
-    socket.on('sync:request', async (data) => {
-        console.log('🔄 Richiesta sincronizzazione da:', socket.id);
-        // Invia tutti i dati al client
-        const signs = db.prepare('SELECT * FROM signs').all();
-        socket.emit('sync:data', { signs });
-    });
-
-    socket.on('disconnect', () => {
-        console.log('📴 Client disconnesso:', socket.id);
-    });
-});
-
-// Avvia server
+// Start Server
 httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n🚀 Server Catasto Segnaletica avviato!`);
-    console.log(`📡 HTTP Server: http://localhost:${PORT}`);
-    console.log(`📡 Network: http://192.168.1.50:${PORT}`);
-    console.log(`🔌 WebSocket Server: ws://localhost:${PORT}`);
-    console.log(`🔐 Database: ${path.join(dataDir, 'catasto.db')}`);
-    console.log(`📁 Foto crittografate: ${photosDir}\n`);
+    console.log(`\n🚀 Server Catasto Segnaletica (PostgreSQL) avviato su porta ${PORT}`);
 });
