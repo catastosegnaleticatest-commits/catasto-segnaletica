@@ -8,6 +8,7 @@ import syncService from '../services/sync';
 function DesktopView({ user, syncStatus, stats, onDataChange }) {
     const [activeTab, setActiveTab] = useState('map');
     const [selectedSign, setSelectedSign] = useState(null);
+    const [previousTab, setPreviousTab] = useState('map');
     const [signs, setSigns] = useState([]);
     const [interventions, setInterventions] = useState([]);
 
@@ -43,8 +44,12 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
     };
 
     const handleOpenDetails = (sign) => {
-        setSelectedSign(sign);
-        setActiveTab('details');
+        // Salva la tab corrente prima di aprire i dettagli
+        if (activeTab !== 'details' && sign) {
+            setPreviousTab(activeTab);
+            setSelectedSign(sign);
+            setActiveTab('details');
+        }
     };
 
     const handleDeleteSign = async (id) => {
@@ -82,7 +87,10 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
         return (
             <DesktopSignDetails
                 sign={selectedSign}
-                onBack={() => setActiveTab('map')}
+                onBack={() => {
+                    setActiveTab(previousTab);
+                    setSelectedSign(null);
+                }}
             />
         );
     }

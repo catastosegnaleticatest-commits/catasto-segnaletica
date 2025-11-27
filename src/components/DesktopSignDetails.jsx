@@ -6,6 +6,22 @@ function DesktopSignDetails({ sign, onBack }) {
     const [photo, setPhoto] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // Verifica che il segnale sia valido
+    if (!sign || !sign.id) {
+        return (
+            <div className="card">
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--gray-500)' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
+                    <h3>Segnale non trovato</h3>
+                    <p>Il segnale richiesto non è disponibile.</p>
+                    <button className="btn btn-primary" onClick={onBack} style={{ marginTop: '1rem' }}>
+                        ← Torna indietro
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     useEffect(() => {
         loadPhoto();
     }, [sign.id]);
@@ -62,12 +78,12 @@ function DesktopSignDetails({ sign, onBack }) {
                     </h2>
                 </div>
                 <span className="badge" style={{
-                    background: getStatusColor(sign.status),
+                    background: getStatusColor(sign.status || 'buono'),
                     color: 'white',
                     fontSize: '1rem',
                     padding: '0.5rem 1rem'
                 }}>
-                    {sign.status.toUpperCase()}
+                    {(sign.status || 'buono').toUpperCase()}
                 </span>
             </div>
 
@@ -118,26 +134,32 @@ function DesktopSignDetails({ sign, onBack }) {
                         <h3 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem' }}>Informazioni Generali</h3>
                         <div style={{ display: 'grid', gap: '1rem', background: 'var(--gray-50)', padding: '1.5rem', borderRadius: 'var(--border-radius)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                <span style={{ fontSize: '2rem' }}>{getSignIcon(sign.type)}</span>
+                                <span style={{ fontSize: '2rem' }}>{getSignIcon(sign.type || 'indicazione')}</span>
                                 <div>
                                     <div style={{ fontSize: '0.875rem', color: 'var(--gray-600)' }}>TIPO</div>
-                                    <div style={{ fontWeight: '600', textTransform: 'capitalize', fontSize: '1.125rem' }}>{sign.type}</div>
+                                    <div style={{ fontWeight: '600', textTransform: 'capitalize', fontSize: '1.125rem' }}>{sign.type || 'N/A'}</div>
                                 </div>
                             </div>
 
                             <div>
                                 <div style={{ fontSize: '0.875rem', color: 'var(--gray-600)' }}>POSIZIONE GPS</div>
-                                <div style={{ fontFamily: 'monospace', fontSize: '1.125rem' }}>
-                                    {sign.latitude.toFixed(6)}, {sign.longitude.toFixed(6)}
-                                </div>
-                                <a
-                                    href={`https://www.google.com/maps/search/?api=1&query=${sign.latitude},${sign.longitude}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{ display: 'inline-block', marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--primary)' }}
-                                >
-                                    Apri in Google Maps ↗️
-                                </a>
+                                {sign.latitude && sign.longitude ? (
+                                    <>
+                                        <div style={{ fontFamily: 'monospace', fontSize: '1.125rem' }}>
+                                            {Number(sign.latitude).toFixed(6)}, {Number(sign.longitude).toFixed(6)}
+                                        </div>
+                                        <a
+                                            href={`https://www.google.com/maps/search/?api=1&query=${sign.latitude},${sign.longitude}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{ display: 'inline-block', marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--primary)' }}
+                                        >
+                                            Apri in Google Maps ↗️
+                                        </a>
+                                    </>
+                                ) : (
+                                    <div style={{ color: 'var(--gray-500)' }}>Posizione non disponibile</div>
+                                )}
                             </div>
 
                             <div>
@@ -158,7 +180,7 @@ function DesktopSignDetails({ sign, onBack }) {
                             <div style={{ borderTop: '1px solid var(--gray-200)', paddingTop: '1rem', marginTop: '1rem' }}>
                                 <div style={{ fontSize: '0.875rem', color: 'var(--gray-600)' }}>METADATI</div>
                                 <div style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
-                                    <div><strong>Creato il:</strong> {new Date(sign.created_at).toLocaleString('it-IT')}</div>
+                                    <div><strong>Creato il:</strong> {sign.created_at ? new Date(sign.created_at).toLocaleString('it-IT') : 'N/A'}</div>
                                     <div><strong>Stato Sync:</strong> {sign.synced ? '✅ Sincronizzato' : '⏳ In attesa di sync'}</div>
                                 </div>
                             </div>
