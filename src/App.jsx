@@ -74,6 +74,14 @@ function App() {
     // Verifica stato server
     await syncService.checkServerStatus();
 
+    // Sincronizzazione iniziale immediata (scarica dati dal server)
+    try {
+      console.log('🔄 Avvio sincronizzazione iniziale...');
+      await syncService.fullSync();
+    } catch (error) {
+      console.error('Errore sync iniziale:', error);
+    }
+
     // Carica statistiche
     await loadStats();
 

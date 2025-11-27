@@ -207,50 +207,58 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {signs.map((sign) => (
-                                        <tr key={sign.id} style={{ borderBottom: '1px solid var(--gray-200)' }}>
-                                            <td style={{ padding: '0.75rem' }}>
-                                                {getSignIcon(sign.type)} {sign.type}
-                                            </td>
-                                            <td style={{ padding: '0.75rem' }}>
-                                                <span className={`badge ${getStatusBadge(sign.status)}`}>
-                                                    {sign.status}
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
-                                                👤 {sign.creator_username || 'N/D'}
-                                            </td>
-                                            <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
-                                                {sign.latitude.toFixed(4)}, {sign.longitude.toFixed(4)}
-                                            </td>
-                                            <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
-                                                {sign.created_at ? new Date(sign.created_at).toLocaleDateString('it-IT') : '-'}
-                                            </td>
-                                            <td style={{ padding: '0.75rem', fontSize: '0.875rem', maxWidth: '200px' }}>
-                                                {sign.notes || '-'}
-                                            </td>
-                                            <td style={{ padding: '0.75rem' }}>
-                                                {sign.synced ? '✅' : '⏳'}
-                                            </td>
-                                            <td style={{ padding: '0.75rem', textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                                <button
-                                                    className="btn btn-sm btn-primary"
-                                                    onClick={() => handleOpenDetails(sign)}
-                                                    title="Vedi Dettagli"
-                                                >
-                                                    👁️
-                                                </button>
-                                                <button
-                                                    className="btn btn-sm"
-                                                    onClick={() => handleDeleteSign(sign.id)}
-                                                    style={{ background: 'var(--danger)', color: 'white' }}
-                                                    title="Elimina"
-                                                >
-                                                    🗑️
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {signs.map((sign) => {
+                                        if (!sign || !sign.id) return null;
+                                        try {
+                                            return (
+                                                <tr key={sign.id} style={{ borderBottom: '1px solid var(--gray-200)' }}>
+                                                    <td style={{ padding: '0.75rem' }}>
+                                                        {getSignIcon(sign.type)} {sign.type || 'Sconosciuto'}
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem' }}>
+                                                        <span className={`badge ${getStatusBadge(sign.status)}`}>
+                                                            {sign.status || 'N/D'}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
+                                                        👤 {sign.creator_username || 'N/D'}
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
+                                                        {sign.latitude?.toFixed(4) || 0}, {sign.longitude?.toFixed(4) || 0}
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
+                                                        {sign.created_at ? new Date(sign.created_at).toLocaleDateString('it-IT') : '-'}
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem', fontSize: '0.875rem', maxWidth: '200px' }}>
+                                                        {sign.notes || '-'}
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem' }}>
+                                                        {sign.synced ? '✅' : '⏳'}
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem', textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                        <button
+                                                            className="btn btn-sm btn-primary"
+                                                            onClick={() => handleOpenDetails(sign)}
+                                                            title="Vedi Dettagli"
+                                                        >
+                                                            👁️
+                                                        </button>
+                                                        <button
+                                                            className="btn btn-sm"
+                                                            onClick={() => handleDeleteSign(sign.id)}
+                                                            style={{ background: 'var(--danger)', color: 'white' }}
+                                                            title="Elimina"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        } catch (err) {
+                                            console.error('Errore rendering riga:', err, sign);
+                                            return null;
+                                        }
+                                    })}
                                 </tbody>
                             </table>
                         </div>
