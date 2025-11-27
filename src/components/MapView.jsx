@@ -28,7 +28,7 @@ function MapBounds({ signs }) {
 }
 
 // Componente Tooltip personalizzato
-function SignTooltip({ sign, position, onOpenDetails, onClose }) {
+function SignTooltip({ sign, position, onOpenDetails, onClose, onMouseEnter, onMouseLeave }) {
     const [photo, setPhoto] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -62,6 +62,7 @@ function SignTooltip({ sign, position, onOpenDetails, onClose }) {
 
     return (
         <div
+            className="sign-tooltip"
             style={{
                 position: 'fixed',
                 left: `${position.x}px`,
@@ -74,9 +75,11 @@ function SignTooltip({ sign, position, onOpenDetails, onClose }) {
                 boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
                 minWidth: '200px',
                 maxWidth: '250px',
+                width: '200px',
                 pointerEvents: 'auto'
             }}
-            onMouseLeave={onClose}
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                 <span style={{ fontSize: '1.1rem' }}>{getTypeIcon(sign.type)}</span>
@@ -208,6 +211,7 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
     const [selectedSign, setSelectedSign] = useState(null);
     const [hoveredSign, setHoveredSign] = useState(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+    const [isTooltipHovered, setIsTooltipHovered] = useState(false);
 
     // Centro Italia come default se non ci sono segnali
     const defaultCenter = [41.9028, 12.4964];
@@ -249,19 +253,6 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
         }
     };
 
-    // Gestione hover per tooltip
-    useEffect(() => {
-        const handleMouseMove = (e) => {
-            if (hoveredSign) {
-                setTooltipPos({ x: e.clientX, y: e.clientY });
-            }
-        };
-
-        if (hoveredSign) {
-            document.addEventListener('mousemove', handleMouseMove);
-            return () => document.removeEventListener('mousemove', handleMouseMove);
-        }
-    }, [hoveredSign]);
 
     return (
         <div style={{ height: '100%', width: '100%', position: 'relative' }}>
@@ -293,13 +284,21 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                                         const point = map.latLngToContainerPoint(latlng);
                                         const container = map.getContainer();
                                         const rect = container.getBoundingClientRect();
+                                        // Calcola posizione fissa sopra il marker
                                         setTooltipPos({
                                             x: rect.left + point.x,
-                                            y: rect.top + point.y
+                                            y: rect.top + point.y - 10 // Offset sopra il marker
                                         });
                                         setHoveredSign(sign);
                                     },
-                                    mouseout: () => setHoveredSign(null)
+                                    mouseout: () => {
+                                        // Chiudi solo se il mouse non è sul tooltip
+                                        setTimeout(() => {
+                                            if (!isTooltipHovered) {
+                                                setHoveredSign(null);
+                                            }
+                                        }, 150);
+                                    }
                                 }}
                             >
                                 <Popup>
@@ -317,7 +316,15 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                     sign={hoveredSign} 
                     position={tooltipPos}
                     onOpenDetails={onOpenDetails}
-                    onClose={() => setHoveredSign(null)}
+                    onClose={() => {
+                        setIsTooltipHovered(false);
+                        setHoveredSign(null);
+                    }}
+                    onMouseEnter={() => setIsTooltipHovered(true)}
+                    onMouseLeave={() => {
+                        setIsTooltipHovered(false);
+                        setHoveredSign(null);
+                    }}
                 />
             )}
 
