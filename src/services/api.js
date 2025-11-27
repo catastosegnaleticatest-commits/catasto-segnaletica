@@ -213,21 +213,36 @@ class ApiService {
 
     // Carica una nuova foto per un segnale
     async uploadPhoto(signId, photoDataUrl, isPrimary = false) {
-        const response = await fetch(`${API_URL}/api/signs/${signId}/photos`, {
-            method: 'POST',
-            headers: this.getHeaders(),
-            body: JSON.stringify({
-                photo: photoDataUrl, // Invia il data URL, il server lo crittografa
-                is_primary: isPrimary
-            })
-        });
+        try {
+            const response = await fetch(`${API_URL}/api/signs/${signId}/photos`, {
+                method: 'POST',
+                headers: this.getHeaders(),
+                body: JSON.stringify({
+                    photo: photoDataUrl, // Invia il data URL, il server lo crittografa
+                    is_primary: isPrimary
+                })
+            });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Errore nel caricamento della foto');
+            // Verifica se la risposta è JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('Risposta non JSON dal server:', text.substring(0, 200));
+                throw new Error('Il server ha restituito una risposta non valida. Verifica che il backend sia aggiornato.');
+            }
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Errore nel caricamento della foto');
+            }
+
+            return await response.json();
+        } catch (error) {
+            if (error.message.includes('Unexpected token')) {
+                throw new Error('Il server non ha ancora il codice aggiornato. Attendi il deploy su Render o riavvia il server.');
+            }
+            throw error;
         }
-
-        return await response.json();
     }
 
     // Elimina una foto

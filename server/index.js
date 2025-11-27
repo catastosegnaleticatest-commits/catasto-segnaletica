@@ -747,6 +747,14 @@ if (fs.existsSync(distPath)) {
     console.log('⚠️ Cartella dist non trovata. Frontend non servito dal backend.');
 }
 
+// Middleware per gestire errori 404 per tutte le richieste API non trovate
+app.use((req, res, next) => {
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'Endpoint API non trovato', path: req.path });
+    }
+    next();
+});
+
 // Avvia server
 httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🚀 Server Catasto Segnaletica avviato!`);
