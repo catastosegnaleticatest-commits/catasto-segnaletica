@@ -96,7 +96,7 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
         );
     }
 
-    if (activeTab === 'add') {
+    if (activeTab === 'add-sign') {
         return (
             <DesktopAddSign
                 user={user}
@@ -105,7 +105,7 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
                     if (onDataChange) onDataChange();
                     setActiveTab('archive'); // Torna all'archivio dopo il salvataggio
                 }}
-                onBack={() => setActiveTab('map')}
+                onBack={() => setActiveTab(previousTab || 'map')}
             />
         );
     }
@@ -136,9 +136,11 @@ function DesktopView({ user, syncStatus, stats, onDataChange }) {
                         📋 Archivio ({signs.length})
                     </button>
                     <button
-                        className="btn btn-primary"
-                        onClick={() => setActiveTab('add')}
-                        style={{ background: '#10b981', borderColor: '#10b981' }}
+                        className={`btn ${activeTab === 'add-sign' ? 'btn-success' : 'btn-outline'}`}
+                        onClick={() => {
+                            setPreviousTab(activeTab);
+                            setActiveTab('add-sign');
+                        }}
                     >
                         ➕ Nuovo Segnale
                     </button>

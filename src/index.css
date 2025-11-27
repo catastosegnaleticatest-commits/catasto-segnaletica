@@ -175,6 +175,19 @@ body {
   box-shadow: var(--shadow-lg);
 }
 
+.btn-outline {
+  background: transparent;
+  color: var(--primary);
+  border: 2px solid var(--primary);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: var(--primary);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
 .btn-secondary {
   background: var(--gray-200);
   color: var(--gray-900);
@@ -182,6 +195,8 @@ body {
 
 .btn-secondary:hover:not(:disabled) {
   background: var(--gray-300);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
 .btn-success {
@@ -191,6 +206,8 @@ body {
 
 .btn-success:hover:not(:disabled) {
   background: #16a34a;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
 .btn-danger {
@@ -200,6 +217,8 @@ body {
 
 .btn-danger:hover:not(:disabled) {
   background: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
 .btn-sm {

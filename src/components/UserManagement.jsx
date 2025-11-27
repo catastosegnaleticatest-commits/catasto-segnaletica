@@ -359,9 +359,8 @@ function UserManagement({ user }) {
                                                     ✏️ Modifica
                                                 </button>
                                                 <button
-                                                    className="btn btn-sm"
+                                                    className="btn btn-sm btn-warning"
                                                     onClick={() => handleResetPassword(u.id, u.username)}
-                                                    style={{ background: '#f59e0b', color: 'white' }}
                                                     title="Reset password utente"
                                                 >
                                                     🔑 Reset Password

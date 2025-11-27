@@ -29,9 +29,10 @@ function MapCoordinatePicker({ initialLat, initialLng, onCoordinateSelect, onClo
         initialLat && initialLng ? [initialLat, initialLng] : null
     );
 
-    // Centro su Truccazzano se non ci sono coordinate iniziali
+    // Centro su Truccazzano (MI) se non ci sono coordinate iniziali
+    // Coordinate approssimative di Truccazzano: 45.4845, 9.5200
     const center = initialLat && initialLng ? [initialLat, initialLng] : [45.4845, 9.5200];
-    const zoom = initialLat && initialLng ? 15 : 13;
+    const zoom = initialLat && initialLng ? 15 : 14;
 
     const handleMapClick = (latlng) => {
         const newPosition = [latlng.lat, latlng.lng];

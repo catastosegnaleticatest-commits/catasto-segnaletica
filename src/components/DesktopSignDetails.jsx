@@ -347,7 +347,6 @@ function DesktopSignDetails({ sign, onBack }) {
                                             <button
                                                 className="btn btn-sm btn-secondary"
                                                 onClick={() => handleSetPrimary(currentPhoto.id)}
-                                                style={{ background: 'rgba(255,255,255,0.9)', border: 'none' }}
                                                 title="Imposta come primaria"
                                             >
                                                 ⭐
@@ -357,7 +356,6 @@ function DesktopSignDetails({ sign, onBack }) {
                                             <button
                                                 className="btn btn-sm btn-danger"
                                                 onClick={() => handleDeletePhoto(currentPhoto.id, selectedPhotoIndex)}
-                                                style={{ background: 'rgba(239,68,68,0.9)', color: 'white', border: 'none' }}
                                                 title="Elimina foto"
                                             >
                                                 🗑️
