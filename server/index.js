@@ -41,8 +41,9 @@ app.use(cors({
     origin: '*', // Permette richieste da qualsiasi origine (incluso GitHub Pages)
     credentials: true
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Aumenta il limite per le richieste JSON (per le foto compresse)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Configurazione multer per upload foto
 const storage = multer.diskStorage({
