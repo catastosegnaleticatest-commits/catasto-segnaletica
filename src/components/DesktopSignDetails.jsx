@@ -41,24 +41,47 @@ function DesktopSignDetails({ sign, onBack }) {
                 return;
             }
             
-            // Carica tutte le foto dal server
-            const serverPhotos = await apiService.getSignPhotos(sign.id);
-            
-            if (serverPhotos && serverPhotos.length > 0) {
-                setPhotos(serverPhotos);
+            // Carica tutte le foto dal server (nuova tabella sign_photos)
+            try {
+                const serverPhotos = await apiService.getSignPhotos(sign.id);
                 
-                // Carica le immagini come data URL
-                const photosWithData = await Promise.all(
-                    serverPhotos.map(async (photo) => {
-                        const dataUrl = await apiService.getPhotoByIdAsDataUrl(photo.id);
-                        return { ...photo, dataUrl };
-                    })
-                );
-                
-                setPhotosData(photosWithData.filter(p => p.dataUrl));
-            } else {
-                setPhotosData([]);
+                if (serverPhotos && serverPhotos.length > 0) {
+                    setPhotos(serverPhotos);
+                    
+                    // Carica le immagini come data URL
+                    const photosWithData = await Promise.all(
+                        serverPhotos.map(async (photo) => {
+                            const dataUrl = await apiService.getPhotoByIdAsDataUrl(photo.id);
+                            return { ...photo, dataUrl };
+                        })
+                    );
+                    
+                    const validPhotos = photosWithData.filter(p => p.dataUrl);
+                    if (validPhotos.length > 0) {
+                        setPhotosData(validPhotos);
+                        setLoading(false);
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.log('Nuova API foto non disponibile, provo vecchia API');
             }
+            
+            // Fallback: prova a caricare dalla vecchia struttura (signs.photo_path)
+            try {
+                const oldPhoto = await apiService.getPhotoAsDataUrl(sign.id);
+                if (oldPhoto) {
+                    console.log('✅ Foto trovata nella vecchia struttura');
+                    setPhotosData([{ id: 'legacy', dataUrl: oldPhoto, is_primary: true }]);
+                    setLoading(false);
+                    return;
+                }
+            } catch (e) {
+                console.log('Nessuna foto trovata nella vecchia struttura');
+            }
+            
+            // Nessuna foto trovata
+            setPhotosData([]);
         } catch (error) {
             console.error('Errore caricamento foto:', error);
             setPhotosData([]);
