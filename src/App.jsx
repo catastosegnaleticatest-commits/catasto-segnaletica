@@ -7,6 +7,7 @@ import LoginPage from './components/LoginPage';
 import MobileHome from './components/MobileHome';
 import MobileSidebar from './components/MobileSidebar';
 import DesktopView from './components/DesktopView';
+import ChangePassword from './components/ChangePassword';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -16,6 +17,7 @@ function App() {
   const [stats, setStats] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState(null);
+  const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
 
   useEffect(() => {
     // Verifica se c'è un token salvato
@@ -104,10 +106,32 @@ function App() {
       const data = await apiService.login(username, password);
       setIsAuthenticated(true);
       setUser(data.user);
+      setRequiresPasswordChange(data.requiresPasswordChange || false);
       localStorage.setItem('user', JSON.stringify(data.user));
-      await initializeApp();
+      
+      // Se non richiede cambio password, inizializza l'app
+      if (!data.requiresPasswordChange) {
+        await initializeApp();
+      }
     } catch (error) {
       throw error;
+    }
+  };
+
+  const handlePasswordChanged = async () => {
+    // Ricarica i dati utente per aggiornare password_changed
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        // Il token è già valido, aggiorna solo lo stato
+        setRequiresPasswordChange(false);
+        const updatedUser = { ...user, password_changed: true };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        await initializeApp();
+      }
+    } catch (error) {
+      console.error('Errore aggiornamento utente:', error);
     }
   };
 
@@ -131,6 +155,11 @@ function App() {
 
   if (!isAuthenticated) {
     return <LoginPage onLogin={handleLogin} />;
+  }
+
+  // Mostra schermata cambio password se necessario
+  if (requiresPasswordChange) {
+    return <ChangePassword user={user} onPasswordChanged={handlePasswordChanged} />;
   }
 
   return (

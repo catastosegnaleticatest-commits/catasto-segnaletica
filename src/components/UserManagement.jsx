@@ -89,6 +89,27 @@ function UserManagement({ user }) {
         setShowForm(true);
     };
 
+    const handleResetPassword = async (userId, username) => {
+        const newPassword = prompt(`Inserisci la nuova password per ${username} (default: password123):`, 'password123');
+        
+        if (!newPassword) {
+            return; // Utente ha annullato
+        }
+
+        if (newPassword.length < 6) {
+            alert('La password deve essere di almeno 6 caratteri');
+            return;
+        }
+
+        try {
+            const result = await apiService.resetUserPassword(userId, newPassword);
+            alert(`Password resettata con successo per ${username}!\nNuova password: ${result.newPassword}`);
+            loadUsers();
+        } catch (error) {
+            alert('Errore nel reset della password: ' + error.message);
+        }
+    };
+
     const handleDelete = async (userId) => {
         console.log('=== DELETE USER START ===');
         console.log('User ID:', userId);
@@ -296,6 +317,7 @@ function UserManagement({ user }) {
                                 <tr style={{ borderBottom: '2px solid var(--gray-200)' }}>
                                     <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: '600' }}>Utente</th>
                                     <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: '600' }}>Ruolo</th>
+                                    <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: '600' }}>Password</th>
                                     <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: '600' }}>Creato</th>
                                     <th style={{ padding: '0.75rem', textAlign: 'right', fontWeight: '600' }}>Azioni</th>
                                 </tr>
@@ -314,6 +336,17 @@ function UserManagement({ user }) {
                                                 {u.role}
                                             </span>
                                         </td>
+                                        <td style={{ padding: '0.75rem' }}>
+                                            {u.password_changed ? (
+                                                <span className="badge badge-success" title="Password modificata">
+                                                    ✅ Cambiata
+                                                </span>
+                                            ) : (
+                                                <span className="badge badge-warning" title="Password di default, richiede cambio">
+                                                    ⚠️ Default
+                                                </span>
+                                            )}
+                                        </td>
                                         <td style={{ padding: '0.75rem', color: 'var(--gray-600)', fontSize: '0.875rem' }}>
                                             {new Date(u.created_at).toLocaleDateString('it-IT')}
                                         </td>
@@ -324,6 +357,14 @@ function UserManagement({ user }) {
                                                     onClick={() => handleEdit(u)}
                                                 >
                                                     ✏️ Modifica
+                                                </button>
+                                                <button
+                                                    className="btn btn-sm"
+                                                    onClick={() => handleResetPassword(u.id, u.username)}
+                                                    style={{ background: '#f59e0b', color: 'white' }}
+                                                    title="Reset password utente"
+                                                >
+                                                    🔑 Reset Password
                                                 </button>
                                                 {u.username !== user.username && (
                                                     <button

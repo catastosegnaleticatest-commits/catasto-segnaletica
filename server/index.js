@@ -149,12 +149,56 @@ app.post('/api/auth/login', async (req, res) => {
             user: {
                 id: user.id,
                 username: user.username,
-                role: user.role
-            }
+                role: user.role,
+                password_changed: user.password_changed || false
+            },
+            requiresPasswordChange: !user.password_changed
         });
     } catch (error) {
         console.error('❌ Errore login:', error);
         res.status(500).json({ error: 'Errore server durante il login' });
+    }
+});
+
+// Cambio password (obbligatorio al primo accesso)
+app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ error: 'Password corrente e nuova password richieste' });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({ error: 'La nuova password deve essere di almeno 6 caratteri' });
+        }
+
+        // Verifica password corrente
+        const result = await query('SELECT * FROM users WHERE id = $1', [req.user.id]);
+        const user = result.rows[0];
+
+        if (!user) {
+            return res.status(404).json({ error: 'Utente non trovato' });
+        }
+
+        const validPassword = await bcrypt.compare(currentPassword, user.password);
+        if (!validPassword) {
+            return res.status(401).json({ error: 'Password corrente non valida' });
+        }
+
+        // Aggiorna password
+        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+        await query(
+            'UPDATE users SET password = $1, password_changed = true WHERE id = $2',
+            [hashedNewPassword, req.user.id]
+        );
+
+        console.log(`✅ Password cambiata per utente: ${user.username}`);
+
+        res.json({ message: 'Password cambiata con successo' });
+    } catch (error) {
+        console.error('Errore cambio password:', error);
+        res.status(500).json({ error: 'Errore durante il cambio password' });
     }
 });
 
@@ -173,7 +217,7 @@ app.post('/api/auth/register', authenticateToken, async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const result = await query(
-            'INSERT INTO users (username, password, role) VALUES ($1, $2, $3) RETURNING id, username, role',
+            'INSERT INTO users (username, password, role, password_changed) VALUES ($1, $2, $3, false) RETURNING id, username, role',
             [username, hashedPassword, role]
         );
 
@@ -261,7 +305,7 @@ app.get('/api/status', async (req, res) => {
 app.get('/api/users', authenticateToken, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Non autorizzato' });
     try {
-        const result = await query('SELECT id, username, role, created_at FROM users ORDER BY created_at DESC');
+        const result = await query('SELECT id, username, role, password_changed, created_at FROM users ORDER BY created_at DESC');
         res.json(result.rows);
     } catch (error) {
         console.error('Errore recupero utenti:', error);
@@ -291,6 +335,46 @@ app.put('/api/users/:id', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Errore aggiornamento utente:', error);
         res.status(500).json({ error: 'Errore nell\'aggiornamento dell\'utente' });
+    }
+});
+
+// Reset password utente (admin only)
+app.post('/api/users/:id/reset-password', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Solo gli admin possono resettare le password' });
+    }
+
+    try {
+        const { newPassword = 'password123' } = req.body;
+        const userId = parseInt(req.params.id);
+
+        if (userId === req.user.id) {
+            return res.status(400).json({ error: 'Non puoi resettare la tua stessa password' });
+        }
+
+        // Verifica che l'utente esista
+        const userCheck = await query('SELECT id, username FROM users WHERE id = $1', [userId]);
+        if (userCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Utente non trovato' });
+        }
+
+        // Reset password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await query(
+            'UPDATE users SET password = $1, password_changed = false WHERE id = $2',
+            [hashedPassword, userId]
+        );
+
+        console.log(`🔄 Password resettata per utente ${userCheck.rows[0].username} da admin ${req.user.username}`);
+
+        res.json({ 
+            message: 'Password resettata con successo',
+            username: userCheck.rows[0].username,
+            newPassword: newPassword
+        });
+    } catch (error) {
+        console.error('Errore reset password:', error);
+        res.status(500).json({ error: 'Errore durante il reset della password' });
     }
 });
 

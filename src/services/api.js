@@ -97,6 +97,36 @@ class ApiService {
         return await response.json();
     }
 
+    async changePassword(currentPassword, newPassword) {
+        const response = await fetch(`${API_URL}/api/auth/change-password`, {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify({ currentPassword, newPassword })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Errore durante il cambio password');
+        }
+
+        return await response.json();
+    }
+
+    async resetUserPassword(userId, newPassword = 'password123') {
+        const response = await fetch(`${API_URL}/api/users/${userId}/reset-password`, {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify({ newPassword })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Errore durante il reset della password');
+        }
+
+        return await response.json();
+    }
+
     // === SIGNS ===
     async getSigns() {
         const response = await fetch(`${API_URL}/api/signs`, {
