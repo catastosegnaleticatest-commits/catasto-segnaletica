@@ -32,14 +32,20 @@ function DesktopSignDetails({ sign, onBack }) {
             const localPhoto = await localStorageService.getPhoto(sign.id);
             if (localPhoto) {
                 setPhoto(localPhoto);
+                setLoading(false);
+                return;
+            }
+            
+            // Se non c'è locale, prova dal server
+            const serverPhoto = await apiService.getPhotoAsDataUrl(sign.id);
+            if (serverPhoto) {
+                setPhoto(serverPhoto);
             } else {
-                // Se non c'è, usa URL server
-                setPhoto(apiService.getPhotoUrl(sign.id));
+                setPhoto(null);
             }
         } catch (error) {
             console.error('Errore caricamento foto:', error);
-            // Fallback su URL server in caso di errore
-            setPhoto(apiService.getPhotoUrl(sign.id));
+            setPhoto(null);
         } finally {
             setLoading(false);
         }

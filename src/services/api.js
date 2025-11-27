@@ -148,9 +148,33 @@ class ApiService {
         return await response.json();
     }
 
-    // Ottieni URL foto
+    // Ottieni URL foto (con token nell'header, non come query param)
     getPhotoUrl(signId) {
-        return `${API_URL}/api/signs/${signId}/photo?token=${this.token}`;
+        return `${API_URL}/api/signs/${signId}/photo`;
+    }
+
+    // Carica foto dal server come blob e converte in data URL
+    async getPhotoAsDataUrl(signId) {
+        try {
+            const response = await fetch(`${API_URL}/api/signs/${signId}/photo`, {
+                headers: this.getHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error('Foto non trovata');
+            }
+
+            const blob = await response.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        } catch (error) {
+            console.error('Errore caricamento foto dal server:', error);
+            return null;
+        }
     }
 
     // === INTERVENTIONS ===

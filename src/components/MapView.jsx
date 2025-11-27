@@ -35,14 +35,24 @@ function SignTooltip({ sign, position, onOpenDetails, onClose, onMouseEnter, onM
     useEffect(() => {
         const loadPhoto = async () => {
             try {
+                // Prima prova da locale
                 const localPhoto = await localStorageService.getPhoto(sign.id);
                 if (localPhoto) {
                     setPhoto(localPhoto);
+                    setLoading(false);
+                    return;
+                }
+                
+                // Se non c'è locale, prova dal server
+                const serverPhoto = await apiService.getPhotoAsDataUrl(sign.id);
+                if (serverPhoto) {
+                    setPhoto(serverPhoto);
                 } else {
-                    setPhoto(apiService.getPhotoUrl(sign.id));
+                    setPhoto(null);
                 }
             } catch (error) {
-                setPhoto(apiService.getPhotoUrl(sign.id));
+                console.error('Errore caricamento foto tooltip:', error);
+                setPhoto(null);
             } finally {
                 setLoading(false);
             }
@@ -147,13 +157,20 @@ function SignPopupContent({ sign, onOpenDetails }) {
                 const localPhoto = await localStorageService.getPhoto(sign.id);
                 if (localPhoto) {
                     setPhoto(localPhoto);
+                    setLoading(false);
+                    return;
+                }
+                
+                // Se non c'è locale, prova dal server
+                const serverPhoto = await apiService.getPhotoAsDataUrl(sign.id);
+                if (serverPhoto) {
+                    setPhoto(serverPhoto);
                 } else {
-                    // Se non c'è, usa URL server
-                    setPhoto(apiService.getPhotoUrl(sign.id));
+                    setPhoto(null);
                 }
             } catch (error) {
                 console.error('Errore foto popup:', error);
-                setPhoto(apiService.getPhotoUrl(sign.id));
+                setPhoto(null);
             } finally {
                 setLoading(false);
             }

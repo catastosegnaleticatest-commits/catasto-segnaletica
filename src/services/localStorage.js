@@ -138,13 +138,33 @@ class LocalStorageService {
     }
 
     async getPhoto(signId) {
-        const db = await this.db;
-        const photo = await db.get('photos', signId);
-        if (!photo) return null;
+        try {
+            const db = await this.db;
+            const photo = await db.get('photos', signId);
+            if (!photo || !photo.data) {
+                return null;
+            }
 
-        // Decrittografa la foto
-        const decrypted = CryptoJS.AES.decrypt(photo.data, ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8);
-        return decrypted;
+            // Decrittografa la foto
+            const decrypted = CryptoJS.AES.decrypt(photo.data, ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8);
+            
+            // Verifica che la decrittografia sia riuscita
+            if (!decrypted || decrypted.length === 0) {
+                console.warn(`⚠️ Decrittografia foto fallita per segnale ${signId}`);
+                return null;
+            }
+
+            // Verifica che sia un data URL valido
+            if (!decrypted.startsWith('data:image/')) {
+                console.warn(`⚠️ Foto decrittografata non valida per segnale ${signId}`);
+                return null;
+            }
+
+            return decrypted;
+        } catch (error) {
+            console.error(`❌ Errore recupero foto per segnale ${signId}:`, error);
+            return null;
+        }
     }
 
     // === INTERVENTIONS ===
