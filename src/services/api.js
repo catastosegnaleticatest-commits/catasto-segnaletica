@@ -214,30 +214,53 @@ class ApiService {
     // Carica una nuova foto per un segnale
     async uploadPhoto(signId, photoDataUrl, isPrimary = false) {
         try {
+            console.log(`📸 Tentativo upload foto per segnale ${signId}, isPrimary: ${isPrimary}`);
+            console.log(`📏 Dimensione data URL: ${photoDataUrl ? photoDataUrl.length : 0} caratteri`);
+            
+            const headers = this.getHeaders();
+            console.log(`🔗 URL: ${API_URL}/api/signs/${signId}/photos`);
+            console.log(`🔑 Headers:`, headers);
+
+            const requestBody = {
+                photo: photoDataUrl, // Invia il data URL, il server lo crittografa
+                is_primary: isPrimary
+            };
+
             const response = await fetch(`${API_URL}/api/signs/${signId}/photos`, {
                 method: 'POST',
-                headers: this.getHeaders(),
-                body: JSON.stringify({
-                    photo: photoDataUrl, // Invia il data URL, il server lo crittografa
-                    is_primary: isPrimary
-                })
+                headers: headers,
+                body: JSON.stringify(requestBody)
             });
+
+            console.log(`📡 Risposta ricevuta: status ${response.status}, type: ${response.headers.get('content-type')}`);
 
             // Verifica se la risposta è JSON
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
                 const text = await response.text();
-                console.error('Risposta non JSON dal server:', text.substring(0, 200));
-                throw new Error('Il server ha restituito una risposta non valida. Verifica che il backend sia aggiornato.');
+                console.error('❌ Risposta non JSON dal server:', text.substring(0, 500));
+                console.error('📋 Status:', response.status);
+                console.error('📋 Headers:', Object.fromEntries(response.headers.entries()));
+                
+                // Se è HTML, probabilmente è una pagina di errore
+                if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+                    throw new Error(`Il server ha restituito HTML invece di JSON (status ${response.status}). Verifica i log su Render. L'endpoint potrebbe non essere disponibile.`);
+                }
+                
+                throw new Error(`Risposta non valida dal server (status ${response.status}): ${text.substring(0, 100)}`);
             }
 
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Errore nel caricamento della foto');
+                const errorData = await response.json();
+                console.error('❌ Errore dal server:', errorData);
+                throw new Error(errorData.error || errorData.details || 'Errore nel caricamento della foto');
             }
 
-            return await response.json();
+            const result = await response.json();
+            console.log('✅ Foto caricata con successo:', result);
+            return result;
         } catch (error) {
+            console.error('❌ Errore upload foto:', error);
             if (error.message.includes('Unexpected token')) {
                 throw new Error('Il server non ha ancora il codice aggiornato. Attendi il deploy su Render o riavvia il server.');
             }
