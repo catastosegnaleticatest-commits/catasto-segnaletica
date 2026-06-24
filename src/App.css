@@ -12,3 +12,16 @@
     opacity: 1;
   }
 }
+
+@keyframes pulseWarning {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse-warning {
+  animation: pulseWarning 1.5s ease-in-out infinite;
+}

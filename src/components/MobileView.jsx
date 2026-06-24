@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import localStorageService from '../services/localStorage';
+import { compressImage } from '../utils/imageCompression';
 
 function MobileView({ user, syncStatus, stats, onDataChange }) {
     const [formData, setFormData] = useState({
@@ -61,16 +62,17 @@ function MobileView({ user, syncStatus, stats, onDataChange }) {
         );
     };
 
-    const handlePhotoCapture = (e) => {
+    const handlePhotoCapture = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setPhotoPreview(reader.result);
-            setFormData(prev => ({ ...prev, photo: reader.result }));
-        };
-        reader.readAsDataURL(file);
+        try {
+            const compressed = await compressImage(file);
+            setPhotoPreview(compressed);
+            setFormData(prev => ({ ...prev, photo: compressed }));
+        } catch (error) {
+            alert('Errore nella compressione della foto: ' + error.message);
+        }
     };
 
     const handleSubmit = async (e) => {

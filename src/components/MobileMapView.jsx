@@ -12,6 +12,21 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
+// Un segnale è "da verificare" se importato dal Censimento Virtuale (rilevamento
+// AI/community) e non ancora confermato sul campo dalla pattuglia
+function isPendingVerification(sign) {
+    return sign.source === 'virtual_ai' && !!sign.richiede_revisione;
+}
+
+// Icona speciale blu/grigia per i segnali "da verificare" sul campo
+const pendingVerificationIcon = L.divIcon({
+    className: 'pending-verification-marker',
+    html: '<div style="width:28px;height:28px;border-radius:50%;background:#3b82f6;border:3px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 1px 4px rgba(0,0,0,0.4);">🔵</div>',
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    popupAnchor: [0, -14]
+});
+
 // Componente per controllare la mappa programmaticamente
 function MapController({ center, zoom }) {
     const map = useMap();
@@ -27,7 +42,7 @@ function MapController({ center, zoom }) {
 }
 
 // Componente per il contenuto del popup che carica la foto
-function SignPopupContent({ sign, onOpenDetails }) {
+function SignPopupContent({ sign, onOpenDetails, onVerifySign }) {
     const [photo, setPhoto] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -78,18 +93,42 @@ function SignPopupContent({ sign, onOpenDetails }) {
                 </div>
             )}
 
-            <button
-                className="btn btn-sm btn-primary"
-                style={{ width: '100%', fontSize: '0.875rem', padding: '0.4rem' }}
-                onClick={() => onOpenDetails(sign)}
-            >
-                👁️ Vedi Dettagli
-            </button>
+            {isPendingVerification(sign) && (
+                <div style={{
+                    fontSize: '0.75rem',
+                    fontWeight: '700',
+                    color: '#1e40af',
+                    background: '#dbeafe',
+                    padding: '0.25rem 0.5rem',
+                    borderRadius: '4px',
+                    marginBottom: '0.5rem'
+                }}>
+                    🔵 Da verificare (Censimento Virtuale)
+                </div>
+            )}
+
+            {isPendingVerification(sign) ? (
+                <button
+                    className="btn btn-sm btn-primary"
+                    style={{ width: '100%', fontSize: '0.875rem', padding: '0.4rem' }}
+                    onClick={() => onVerifySign(sign)}
+                >
+                    ✅ Verifica sul campo
+                </button>
+            ) : (
+                <button
+                    className="btn btn-sm btn-primary"
+                    style={{ width: '100%', fontSize: '0.875rem', padding: '0.4rem' }}
+                    onClick={() => onOpenDetails(sign)}
+                >
+                    👁️ Vedi Dettagli
+                </button>
+            )}
         </div>
     );
 }
 
-function MobileMapView({ onBack, onOpenDetails }) {
+function MobileMapView({ onBack, onOpenDetails, onVerifySign }) {
     const [signs, setSigns] = useState([]);
     const [filteredSigns, setFilteredSigns] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -252,9 +291,10 @@ function MobileMapView({ onBack, onOpenDetails }) {
                                 key={sign.id}
                                 position={[sign.latitude, sign.longitude]}
                                 opacity={activeSignId === sign.id ? 1 : 0.8}
+                                icon={isPendingVerification(sign) ? pendingVerificationIcon : undefined}
                             >
                                 <Popup>
-                                    <SignPopupContent sign={sign} onOpenDetails={onOpenDetails} />
+                                    <SignPopupContent sign={sign} onOpenDetails={onOpenDetails} onVerifySign={onVerifySign} />
                                 </Popup>
                             </Marker>
                         ))}
@@ -298,6 +338,20 @@ function MobileMapView({ onBack, onOpenDetails }) {
                                 <div style={{ fontSize: '0.75rem', color: 'var(--gray-500)', marginTop: '0.25rem' }}>
                                     📍 {sign.latitude.toFixed(4)}, {sign.longitude.toFixed(4)}
                                 </div>
+                                {isPendingVerification(sign) && (
+                                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#1e40af', background: '#dbeafe', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+                                            🔵 Da verificare
+                                        </span>
+                                        <button
+                                            className="btn btn-sm btn-primary"
+                                            style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                                            onClick={(e) => { e.stopPropagation(); onVerifySign(sign); }}
+                                        >
+                                            ✅ Verifica sul campo
+                                        </button>
+                                    </div>
+                                )}
                                 {activeSignId === sign.id && (
                                     <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--primary)', fontWeight: '600' }}>
                                         👁️ Visualizzato su mappa

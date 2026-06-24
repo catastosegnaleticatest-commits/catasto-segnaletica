@@ -7,7 +7,6 @@ class SyncService {
         this.isSyncing = false;
         this.syncListeners = [];
         this.statusListeners = [];
-        this.autoSyncInterval = null;
     }
 
     // Aggiungi listener per eventi di sync
@@ -70,6 +69,30 @@ class SyncService {
         }
     }
 
+    // Confronta i timestamp di modifica locale e server per applicare la strategia Last-Write-Wins.
+    // Ritorna true se il record locale è più recente (o uguale) e può essere inviato senza conflitti,
+    // false se il server ha una versione più recente (conflitto: il record va segnalato per revisione).
+    isLocalNewerOrEqual(localData, serverRecord) {
+        const localTimestamp = new Date(localData?.updated_at || localData?.created_at || 0).getTime();
+        const serverTimestamp = new Date(serverRecord?.updated_at || serverRecord?.created_at || 0).getTime();
+        return localTimestamp >= serverTimestamp;
+    }
+
+    // Gestisce un conflitto: il server ha una versione più recente di quella locale.
+    // La modifica offline viene scartata (LWW: vince il server) e il record viene
+    // marcato richiede_revisione=1 per il controllo da desktop.
+    async handleConflict(tableName, recordId) {
+        console.warn(`⚠️ Conflitto rilevato su ${tableName} #${recordId}: il server ha una versione più recente. Segnalato per revisione.`);
+
+        if (tableName === 'signs') {
+            await apiService.flagSignForReview(recordId);
+        } else if (tableName === 'interventions') {
+            await apiService.flagInterventionForReview(recordId);
+        }
+
+        this.notifySyncEvent('sync:conflict', { tableName, recordId });
+    }
+
     // Sincronizza dal locale al server (upload)
     async syncToServer() {
         try {
@@ -78,6 +101,7 @@ class SyncService {
             const queue = await localStorageService.getSyncQueue();
             let uploaded = 0;
             let failed = 0;
+            let conflicts = 0;
             const errors = [];
 
             for (const item of queue) {
@@ -88,13 +112,45 @@ class SyncService {
                         if (item.operation === 'create') {
                             await apiService.createSign(data);
                         } else if (item.operation === 'update') {
-                            await apiService.updateSign(item.recordId, data);
+                            // Risoluzione conflitti Last-Write-Wins basata su updated_at
+                            let serverSign = null;
+                            try {
+                                serverSign = await apiService.getSign(item.recordId);
+                            } catch {
+                                // Record non trovato sul server: nessun conflitto, procedi con l'update
+                            }
+
+                            if (serverSign && !this.isLocalNewerOrEqual(data, serverSign)) {
+                                // Il server è più recente: la modifica offline viene scartata
+                                await this.handleConflict('signs', item.recordId);
+                                conflicts++;
+                            } else {
+                                await apiService.updateSign(item.recordId, data);
+                            }
                         } else if (item.operation === 'delete') {
                             await apiService.deleteSign(item.recordId);
                         }
                     } else if (item.tableName === 'interventions') {
                         if (item.operation === 'create') {
                             await apiService.createIntervention(data);
+                        } else if (item.operation === 'update') {
+                            // Risoluzione conflitti Last-Write-Wins basata su updated_at
+                            let serverIntervention = null;
+                            try {
+                                serverIntervention = await apiService.getIntervention(item.recordId);
+                            } catch {
+                                // Record non trovato sul server: nessun conflitto, procedi con l'update
+                            }
+
+                            if (serverIntervention && !this.isLocalNewerOrEqual(data, serverIntervention)) {
+                                // Il server è più recente: la modifica offline viene scartata
+                                await this.handleConflict('interventions', item.recordId);
+                                conflicts++;
+                            } else {
+                                await apiService.updateIntervention(item.recordId, data);
+                            }
+                        } else if (item.operation === 'delete') {
+                            await apiService.deleteIntervention(item.recordId);
                         }
                     }
 
@@ -110,12 +166,12 @@ class SyncService {
             }
 
             if (failed > 0) {
-                this.notifySyncEvent('upload:partial', { uploaded, failed, errors });
+                this.notifySyncEvent('upload:partial', { uploaded, failed, conflicts, errors });
             } else {
-                this.notifySyncEvent('upload:complete', { uploaded });
+                this.notifySyncEvent('upload:complete', { uploaded, conflicts });
             }
 
-            return { success: true, uploaded, failed, errors };
+            return { success: true, uploaded, failed, conflicts, errors };
         } catch (error) {
             this.notifySyncEvent('upload:error', error);
             throw error;
@@ -162,30 +218,6 @@ class SyncService {
             throw error;
         } finally {
             this.isSyncing = false;
-        }
-    }
-
-    // Avvia sincronizzazione automatica periodica
-    startAutoSync(intervalMinutes = 5) {
-        this.stopAutoSync();
-
-        this.autoSyncInterval = setInterval(async () => {
-            try {
-                await this.fullSync();
-            } catch (error) {
-                console.log('Auto-sync fallito (normale se offline):', error.message);
-            }
-        }, intervalMinutes * 60 * 1000);
-
-        console.log(`✅ Auto-sync avviato (ogni ${intervalMinutes} minuti)`);
-    }
-
-    // Ferma sincronizzazione automatica
-    stopAutoSync() {
-        if (this.autoSyncInterval) {
-            clearInterval(this.autoSyncInterval);
-            this.autoSyncInterval = null;
-            console.log('❌ Auto-sync fermato');
         }
     }
 
