@@ -11,7 +11,7 @@ function FlyToCenter({ center, radius }) {
     }, [center, map]);
     return null;
 }
-import apiService from '../services/api';
+import { signsService } from '../services/firestoreService';
 
 // Fix per icone marker di default in Leaflet con Webpack/Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -272,15 +272,14 @@ function VirtualCensusTab() {
     const handleImport = async (result, type) => {
         setImportingId(result.id);
         try {
-            await apiService.importVirtualSign({
+            await signsService.create({
                 type,
                 latitude: result.lat,
                 longitude: result.lon,
                 status: 'buono',
-                notes: searchedVia || via,
+                notes: `Importato da Censimento Virtuale - ${searchedVia || via}`,
             });
             setImportedIds(prev => new Set(prev).add(result.id));
-            // Notifica DesktopView di ricaricare la lista segnali
             window.dispatchEvent(new CustomEvent('catasto:signs-updated'));
         } catch (err) {
             alert('Errore nell\'importazione del segnale: ' + err.message);

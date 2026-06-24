@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import apiService from '../services/api';
+import { trafficLightsService, trafficLightInterventionsService } from '../services/firestoreService';
 import LocationPickerModal from './LocationPickerModal';
 
 const TYPE_LABELS = {
@@ -70,8 +70,8 @@ function TrafficLightsTab({ user }) {
         setLoading(true);
         try {
             const [lightsData, interventionsData] = await Promise.all([
-                apiService.getTrafficLights(),
-                apiService.getTrafficLightInterventions(),
+                trafficLightsService.getAll(),
+                trafficLightInterventionsService.getAll(),
             ]);
             setLights(lightsData);
             setInterventions(interventionsData);
@@ -89,7 +89,7 @@ function TrafficLightsTab({ user }) {
     const handleCreate = async (e) => {
         e.preventDefault();
         try {
-            await apiService.createTrafficLight({
+            await trafficLightsService.create({
                 ...formData,
                 latitude: parseFloat(formData.latitude),
                 longitude: parseFloat(formData.longitude),
@@ -105,7 +105,7 @@ function TrafficLightsTab({ user }) {
 
     const handleStatusChange = async (light, newStatus) => {
         try {
-            await apiService.updateTrafficLight(light.id, {
+            await trafficLightsService.update(light.id, {
                 location_name: light.location_name,
                 latitude: light.latitude,
                 longitude: light.longitude,
@@ -121,9 +121,9 @@ function TrafficLightsTab({ user }) {
     };
 
     const handleDelete = async (light) => {
-        if (!window.confirm(`Eliminare definitivamente l'impianto semaforico #${light.id}?`)) return;
+        if (!window.confirm(`Eliminare definitivamente l'impianto semaforico "${light.location_name}"?`)) return;
         try {
-            await apiService.deleteTrafficLight(light.id);
+            await trafficLightsService.delete(light.id);
             if (selectedId === light.id) setSelectedId(null);
             await loadAll();
         } catch (err) {
@@ -134,12 +134,13 @@ function TrafficLightsTab({ user }) {
     const handleCreateIntervention = async (e) => {
         e.preventDefault();
         try {
-            await apiService.createTrafficLightIntervention({
+            await trafficLightInterventionsService.create({
                 traffic_light_id: selectedId,
                 type: interventionForm.type,
                 scheduled_date: interventionForm.scheduled_date || null,
                 cost: interventionForm.cost !== '' ? parseFloat(interventionForm.cost) : null,
                 notes: interventionForm.notes || null,
+                status: 'programmato',
             });
             setShowInterventionForm(false);
             setInterventionForm(EMPTY_INTERVENTION);
@@ -151,7 +152,7 @@ function TrafficLightsTab({ user }) {
 
     const handleInterventionStatusChange = async (intervention, newStatus) => {
         try {
-            await apiService.updateTrafficLightIntervention(intervention.id, {
+            await trafficLightInterventionsService.update(intervention.id, {
                 type: intervention.type,
                 scheduled_date: intervention.scheduled_date,
                 completed_date: newStatus === 'completato' ? new Date().toISOString().split('T')[0] : intervention.completed_date,

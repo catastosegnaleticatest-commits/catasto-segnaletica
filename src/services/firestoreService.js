@@ -144,6 +144,57 @@ export const interventionsService = {
     },
 };
 
+// ─── Impianti Semaforici ─────────────────────────────────────────────────────
+export const trafficLightsService = {
+    async getAll() {
+        const snap = await getDocs(query(collection(db, 'traffic_lights'), orderBy('created_at', 'desc')));
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    },
+
+    async create(data) {
+        const ref = await addDoc(collection(db, 'traffic_lights'), {
+            ...data,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        });
+        return { id: ref.id, ...data };
+    },
+
+    async update(id, data) {
+        const update = { ...data, updated_at: new Date().toISOString() };
+        await updateDoc(doc(db, 'traffic_lights', id), update);
+        return { id, ...update };
+    },
+
+    async delete(id) {
+        await deleteDoc(doc(db, 'traffic_lights', id));
+    },
+};
+
+// ─── Interventi Semaforici ────────────────────────────────────────────────────
+export const trafficLightInterventionsService = {
+    async getAll() {
+        const snap = await getDocs(query(collection(db, 'traffic_light_interventions'), orderBy('created_at', 'desc')));
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    },
+
+    async create(data) {
+        const ref = await addDoc(collection(db, 'traffic_light_interventions'), {
+            ...data,
+            traffic_light_id: String(data.traffic_light_id),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        });
+        return { id: ref.id, ...data };
+    },
+
+    async update(id, data) {
+        const update = { ...data, updated_at: new Date().toISOString() };
+        await updateDoc(doc(db, 'traffic_light_interventions', id), update);
+        return { id, ...update };
+    },
+};
+
 // ─── Stats ───────────────────────────────────────────────────────────────────
 export async function getStats() {
     const [signsSnap, interventionsSnap] = await Promise.all([
