@@ -3,7 +3,7 @@ services:
     name: catasto-segnaletica
     runtime: node
     plan: free
-    buildCommand: npm install --ignore-scripts --include=dev && npm rebuild better-sqlite3 bcrypt && npm run build:cloud
+    buildCommand: npm install --ignore-scripts --include=dev && cd server && npm install --ignore-scripts && npm rebuild better-sqlite3 bcrypt && cd .. && npm run build:cloud
     startCommand: node server/index.js
     envVars:
       - key: NODE_ENV
