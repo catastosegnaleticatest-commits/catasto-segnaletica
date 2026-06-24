@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import apiService from '../services/api';
 import { Capacitor } from '@capacitor/core';
 
 function LoginPage({ onLogin }) {
@@ -9,8 +8,6 @@ function LoginPage({ onLogin }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [showForgot, setShowForgot] = useState(false);
-    const [showServerConfig, setShowServerConfig] = useState(false);
-    const [serverUrl, setServerUrl] = useState(() => apiService.getApiUrl());
     const isNative = Capacitor.isNativePlatform();
 
     const handleSubmit = async (e) => {
@@ -26,11 +23,6 @@ function LoginPage({ onLogin }) {
         }
     };
 
-    const handleSaveServerUrl = () => {
-        apiService.setApiUrl(serverUrl);
-        setShowServerConfig(false);
-        setError('');
-    };
 
     const inputStyle = {
         width: '100%',
@@ -193,39 +185,6 @@ function LoginPage({ onLogin }) {
                     </button>
                 </form>
 
-                {/* Configurazione server (solo APK mobile) */}
-                {isNative && (
-                    <div style={{ marginTop: '1rem' }}>
-                        <button
-                            type="button"
-                            onClick={() => setShowServerConfig(v => !v)}
-                            style={{ background: 'none', border: 'none', color: '#475569', fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline', display: 'block', margin: '0 auto' }}
-                        >
-                            ⚙️ Configura indirizzo server
-                        </button>
-                        {showServerConfig && (
-                            <div style={{ marginTop: '0.6rem', background: 'rgba(30,41,59,0.8)', border: '1px solid #334155', borderRadius: 8, padding: '0.85rem' }}>
-                                <div style={{ color: '#94a3b8', fontSize: '0.75rem', marginBottom: '0.5rem' }}>
-                                    Indirizzo IP del PC in ufficio (es. <code style={{ color: '#60a5fa' }}>http://192.168.1.50:3000</code>)
-                                </div>
-                                <input
-                                    type="url"
-                                    value={serverUrl}
-                                    onChange={e => setServerUrl(e.target.value)}
-                                    placeholder="http://192.168.x.x:3000"
-                                    style={{ ...inputStyle, marginBottom: '0.5rem', fontSize: '0.82rem' }}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={handleSaveServerUrl}
-                                    style={{ width: '100%', background: '#1e3a5f', color: '#93c5fd', border: '1px solid #2563eb', borderRadius: 6, padding: '0.5rem', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}
-                                >
-                                    💾 Salva e chiudi
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                )}
 
                 <div style={{ marginTop: '1rem', textAlign: 'center' }}>
                     <button

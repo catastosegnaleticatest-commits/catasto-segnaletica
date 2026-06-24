@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import apiService from '../services/api';
+import { authService } from '../services/authService';
 
 function ChangePasswordPage({ onPasswordChanged, onLogout }) {
     const [currentPassword, setCurrentPassword] = useState('');
@@ -24,7 +24,7 @@ function ChangePasswordPage({ onPasswordChanged, onLogout }) {
 
         setLoading(true);
         try {
-            await apiService.changePassword(currentPassword, newPassword);
+            await authService.changePassword(currentPassword, newPassword);
             onPasswordChanged();
         } catch (err) {
             setError(err.message || 'Errore cambio password');
