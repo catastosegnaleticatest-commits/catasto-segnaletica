@@ -1117,6 +1117,43 @@ app.get('/api/ai/status', authenticateToken, (req, res) => {
     res.json({ available: isAiAvailable() });
 });
 
+app.get('/api/ai/hardware-check', authenticateToken, (req, res) => {
+    const totalRamGb = os.totalmem() / (1024 ** 3);
+    const freeRamGb  = os.freemem()  / (1024 ** 3);
+    const cpuCount   = os.cpus().length;
+    const cpuModel   = os.cpus()[0]?.model || 'Sconosciuto';
+
+    const modelPath  = process.env.CATASTO_MODEL_PATH
+        || path.join(path.dirname(fileURLToPath(import.meta.url)), '../models/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf');
+    const modelExists = fs.existsSync(modelPath);
+
+    // Spazio disco libero (df funziona su Linux/Mac, fallisce su Windows silenziosamente)
+    let diskFreeGb = null;
+    try {
+        const { execSync } = createRequire(import.meta.url)('child_process');
+        const raw = execSync('df -BG .', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().split('\n')[1];
+        diskFreeGb = parseInt(raw?.split(/\s+/)[3]) || null;
+    } catch { /* Windows o ambienti senza df */ }
+
+    const RAM_MIN_GB  = 7.5;
+    const RAM_REC_GB  = 14;
+    const DISK_MIN_GB = 6;
+
+    const ramOk   = totalRamGb >= RAM_MIN_GB;
+    const ramGood = totalRamGb >= RAM_REC_GB;
+    const diskOk  = diskFreeGb === null ? null : diskFreeGb >= DISK_MIN_GB;
+    const ready   = ramOk && (diskOk !== false);
+
+    res.json({
+        ready,
+        modelExists,
+        modelPath,
+        ram: { total: +totalRamGb.toFixed(1), free: +freeRamGb.toFixed(1), ok: ramOk, good: ramGood, minRequired: RAM_MIN_GB },
+        disk: { freeGb: diskFreeGb, ok: diskOk, minRequired: DISK_MIN_GB },
+        cpu: { cores: cpuCount, model: cpuModel },
+    });
+});
+
 // Proxy WMS catastale — senza auth: i tile sono dati pubblici AdE e Leaflet
 // non può iniettare JWT header nelle richieste img. Il server è sempre localhost.
 app.get('/api/wms-proxy', async (req, res) => {

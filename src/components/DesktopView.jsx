@@ -20,6 +20,7 @@ const TrafficLightsTab = lazy(() => import('./TrafficLightsTab'));
 const UserManual       = lazy(() => import('./UserManual'));
 const ARValidationPanel = lazy(() => import('./ARValidationPanel'));
 const MobileImportPanel = lazy(() => import('./MobileImportPanel'));
+const AISetupPanel      = lazy(() => import('./AISetupPanel'));
 
 const INTERVENTION_TYPES = ['Sostituzione', 'Riparazione', 'Pulizia', 'Ispezione', 'Rimozione', 'Nuova installazione', 'Altro'];
 
@@ -762,6 +763,7 @@ function DesktopView({ user, syncStatus, stats, onDataChange, onLogout, onSync, 
                     </>)}
 
                     <NavSection label="Sistema" />
+                    <NavItem id="ai-setup" icon="🤖" label="Configurazione AI" />
                     <NavItem id="manual" icon="📚" label="Manuale" />
                 </nav>
 
@@ -1062,6 +1064,12 @@ function DesktopView({ user, syncStatus, stats, onDataChange, onLogout, onSync, 
                 {activeTab === 'mobile-import' && (user?.role === 'admin' || user?.role === 'tecnico') && (
                     <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                         <MobileImportPanel user={user} />
+                    </div>
+                )}
+
+                {activeTab === 'ai-setup' && user?.role === 'admin' && (
+                    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                        <AISetupPanel />
                     </div>
                 )}
 

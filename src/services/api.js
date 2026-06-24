@@ -74,6 +74,15 @@ class ApiService {
         this.disconnectSocket();
     }
 
+    async request(path, options = {}) {
+        const res = await fetch(`${this._apiUrl}${path}`, {
+            ...options,
+            headers: { ...this.getHeaders(), ...(options.headers || {}) },
+        });
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || res.statusText); }
+        return res.json();
+    }
+
     // === AUTH ===
     async login(username, password) {
         const response = await fetch(`${this._apiUrl}/api/auth/login`, {
