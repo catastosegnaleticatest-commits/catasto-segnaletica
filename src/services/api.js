@@ -1,21 +1,31 @@
 // Servizio per gestire la comunicazione con il backend
 import { io } from 'socket.io-client';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-console.log('🔗 API URL configurato:', API_URL);
+const DEFAULT_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+console.log('🔗 API URL configurato:', DEFAULT_API_URL);
 
 class ApiService {
     constructor() {
         this.token = localStorage.getItem('token');
         this.socket = null;
         this.isServerOnline = false;
+        this._apiUrl = localStorage.getItem('serverUrl') || DEFAULT_API_URL;
+    }
+
+    getApiUrl() {
+        return this._apiUrl;
+    }
+
+    setApiUrl(url) {
+        this._apiUrl = url;
+        localStorage.setItem('serverUrl', url);
     }
 
     // Connetti WebSocket
     connectSocket() {
         if (this.socket) return this.socket;
 
-        this.socket = io(API_URL, {
+        this.socket = io(this._apiUrl, {
             auth: { token: this.token },
             reconnection: true,
             reconnectionDelay: 1000,
@@ -66,7 +76,7 @@ class ApiService {
 
     // === AUTH ===
     async login(username, password) {
-        const response = await fetch(`${API_URL}/api/auth/login`, {
+        const response = await fetch(`${this._apiUrl}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
@@ -83,7 +93,7 @@ class ApiService {
     }
 
     async register(username, password, role) {
-        const response = await fetch(`${API_URL}/api/auth/register`, {
+        const response = await fetch(`${this._apiUrl}/api/auth/register`, {
             method: 'POST',
             headers: this.getHeaders(),
             body: JSON.stringify({ username, password, role })
@@ -98,7 +108,7 @@ class ApiService {
     }
 
     async changePassword(currentPassword, newPassword) {
-        const response = await fetch(`${API_URL}/api/auth/change-password`, {
+        const response = await fetch(`${this._apiUrl}/api/auth/change-password`, {
             method: 'POST',
             headers: this.getHeaders(),
             body: JSON.stringify({ currentPassword, newPassword })
@@ -113,7 +123,7 @@ class ApiService {
     }
 
     async resetUserPassword(userId, newPassword = 'password123') {
-        const response = await fetch(`${API_URL}/api/users/${userId}/reset-password`, {
+        const response = await fetch(`${this._apiUrl}/api/users/${userId}/reset-password`, {
             method: 'POST',
             headers: this.getHeaders(),
             body: JSON.stringify({ newPassword })
@@ -129,7 +139,7 @@ class ApiService {
 
     // === SIGNS ===
     async getSigns() {
-        const response = await fetch(`${API_URL}/api/signs`, {
+        const response = await fetch(`${this._apiUrl}/api/signs`, {
             headers: this.getHeaders()
         });
 
@@ -138,7 +148,7 @@ class ApiService {
     }
 
     async getSign(id) {
-        const response = await fetch(`${API_URL}/api/signs/${id}`, {
+        const response = await fetch(`${this._apiUrl}/api/signs/${id}`, {
             headers: this.getHeaders()
         });
 
@@ -147,7 +157,7 @@ class ApiService {
     }
 
     async createSign(signData) {
-        const response = await fetch(`${API_URL}/api/signs`, {
+        const response = await fetch(`${this._apiUrl}/api/signs`, {
             method: 'POST',
             headers: this.getHeaders(),
             body: JSON.stringify(signData)
@@ -158,7 +168,7 @@ class ApiService {
     }
 
     async updateSign(id, signData) {
-        const response = await fetch(`${API_URL}/api/signs/${id}`, {
+        const response = await fetch(`${this._apiUrl}/api/signs/${id}`, {
             method: 'PUT',
             headers: this.getHeaders(),
             body: JSON.stringify(signData)
@@ -169,7 +179,7 @@ class ApiService {
     }
 
     async deleteSign(id) {
-        const response = await fetch(`${API_URL}/api/signs/${id}`, {
+        const response = await fetch(`${this._apiUrl}/api/signs/${id}`, {
             method: 'DELETE',
             headers: this.getHeaders()
         });
@@ -180,12 +190,12 @@ class ApiService {
 
     // Ottieni URL foto (con token nell'header, non come query param)
     getPhotoUrl(signId) {
-        return `${API_URL}/api/signs/${signId}/photo`;
+        return `${this._apiUrl}/api/signs/${signId}/photo`;
     }
 
     // Ottieni tutte le foto di un segnale
     async getSignPhotos(signId) {
-        const response = await fetch(`${API_URL}/api/signs/${signId}/photos`, {
+        const response = await fetch(`${this._apiUrl}/api/signs/${signId}/photos`, {
             headers: this.getHeaders()
         });
 
@@ -196,7 +206,7 @@ class ApiService {
     // Carica foto dal server come blob e converte in data URL
     async getPhotoAsDataUrl(signId) {
         try {
-            const response = await fetch(`${API_URL}/api/signs/${signId}/photo`, {
+            const response = await fetch(`${this._apiUrl}/api/signs/${signId}/photo`, {
                 headers: this.getHeaders()
             });
 
@@ -220,7 +230,7 @@ class ApiService {
     // Carica foto specifica per ID
     async getPhotoByIdAsDataUrl(photoId) {
         try {
-            const response = await fetch(`${API_URL}/api/photos/${photoId}`, {
+            const response = await fetch(`${this._apiUrl}/api/photos/${photoId}`, {
                 headers: this.getHeaders()
             });
 
@@ -248,7 +258,7 @@ class ApiService {
             console.log(`📏 Dimensione data URL: ${photoDataUrl ? photoDataUrl.length : 0} caratteri`);
             
             const headers = this.getHeaders();
-            console.log(`🔗 URL: ${API_URL}/api/signs/${signId}/photos`);
+            console.log(`🔗 URL: ${this._apiUrl}/api/signs/${signId}/photos`);
             console.log(`🔑 Headers:`, headers);
 
             const requestBody = {
@@ -256,7 +266,7 @@ class ApiService {
                 is_primary: isPrimary
             };
 
-            const response = await fetch(`${API_URL}/api/signs/${signId}/photos`, {
+            const response = await fetch(`${this._apiUrl}/api/signs/${signId}/photos`, {
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify(requestBody)
@@ -300,7 +310,7 @@ class ApiService {
 
     // Elimina una foto
     async deletePhoto(photoId) {
-        const response = await fetch(`${API_URL}/api/photos/${photoId}`, {
+        const response = await fetch(`${this._apiUrl}/api/photos/${photoId}`, {
             method: 'DELETE',
             headers: this.getHeaders()
         });
@@ -315,7 +325,7 @@ class ApiService {
 
     // Imposta foto primaria
     async setPrimaryPhoto(photoId) {
-        const response = await fetch(`${API_URL}/api/photos/${photoId}/primary`, {
+        const response = await fetch(`${this._apiUrl}/api/photos/${photoId}/primary`, {
             method: 'PUT',
             headers: this.getHeaders()
         });
@@ -330,7 +340,7 @@ class ApiService {
 
     // === INTERVENTIONS ===
     async getInterventions() {
-        const response = await fetch(`${API_URL}/api/interventions`, {
+        const response = await fetch(`${this._apiUrl}/api/interventions`, {
             headers: this.getHeaders()
         });
 
@@ -339,7 +349,7 @@ class ApiService {
     }
 
     async createIntervention(interventionData) {
-        const response = await fetch(`${API_URL}/api/interventions`, {
+        const response = await fetch(`${this._apiUrl}/api/interventions`, {
             method: 'POST',
             headers: this.getHeaders(),
             body: JSON.stringify(interventionData)
@@ -352,7 +362,7 @@ class ApiService {
     // === STATUS ===
     async getServerStatus() {
         try {
-            const response = await fetch(`${API_URL}/api/status`);
+            const response = await fetch(`${this._apiUrl}/api/status`);
             if (!response.ok) throw new Error('Server offline');
             const data = await response.json();
             this.isServerOnline = data.online;
