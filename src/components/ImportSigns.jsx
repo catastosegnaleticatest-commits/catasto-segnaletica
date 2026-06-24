@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import apiService from '../services/api';
+import { signsService } from '../services/firestoreService';
 
 const VALID_STATUSES = ['buono', 'danneggiato', 'da_sostituire', 'rimosso'];
 
@@ -131,7 +131,7 @@ function ImportSigns() {
         setImporting(true);
         setResult(null);
         try {
-            const res = await apiService.bulkImportSigns(preview);
+            const res = await signsService.bulkImport(preview);
             setResult({ success: true, count: res.count });
             setPreview(null);
             setFile(null);

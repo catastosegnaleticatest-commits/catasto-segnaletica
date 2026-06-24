@@ -1,6 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import localStorageService from '../services/localStorage';
-import apiService from '../services/api';
+import { useState, useRef } from 'react';
+import { signsService } from '../services/firestoreService';
 
 const SUPPORT_TYPES = [
     { value: 'palo', label: 'Palo' },
@@ -50,21 +49,8 @@ function AddSignModal({ onSaved, onClose }) {
     const [error, setError] = useState(null);
     const fileInputRef = useRef(null);
 
-    const [supports, setSupports] = useState([]);
-    const [supportMode, setSupportMode] = useState('existing'); // 'existing' | 'new'
-    const [selectedSupportId, setSelectedSupportId] = useState('');
-    const [newSupport, setNewSupport] = useState({
-        street_name: '', latitude: '', longitude: '', type: 'palo', condition: '', last_inspected_at: '',
-    });
-
-    useEffect(() => {
-        apiService.getSupports()
-            .then(data => {
-                setSupports(data);
-                if (data.length === 0) setSupportMode('new');
-            })
-            .catch(err => console.error('Errore caricamento pali/supporti:', err));
-    }, []);
+    const [supportType, setSupportType] = useState('palo');
+    const [supportStreet, setSupportStreet] = useState('');
 
     const reverseGeocode = async (lat, lng) => {
         setGeocoding(true);
@@ -141,30 +127,9 @@ function AddSignModal({ onSaved, onClose }) {
             setError('Inserisci le coordinate GPS o usa il rilevamento automatico.');
             return;
         }
-        if (supportMode === 'existing' && !selectedSupportId) {
-            setError('Seleziona un palo/supporto esistente oppure creane uno nuovo.');
-            return;
-        }
-        if (supportMode === 'new' && !newSupport.street_name) {
-            setError('Inserisci la via del nuovo palo/supporto.');
-            return;
-        }
         setSaving(true);
         try {
-            let supportId = selectedSupportId ? parseInt(selectedSupportId) : null;
-            if (supportMode === 'new') {
-                const created = await apiService.createSupport({
-                    street_name: newSupport.street_name,
-                    latitude: parseFloat(form.latitude),
-                    longitude: parseFloat(form.longitude),
-                    type: newSupport.type,
-                    condition: newSupport.condition || null,
-                    last_inspected_at: newSupport.last_inspected_at || null,
-                });
-                supportId = created.id;
-            }
-
-            const signId = await localStorageService.saveSign({
+            await signsService.create({
                 type: form.type,
                 status: form.status,
                 notes: form.notes,
@@ -174,7 +139,8 @@ function AddSignModal({ onSaved, onClose }) {
                 ordinanza_rif: form.ordinanza_rif || null,
                 numero_autorizzazione: form.type === 'passo_carrabile' ? (form.numero_autorizzazione || null) : null,
                 proprietario: form.type === 'passo_carrabile' ? (form.proprietario || null) : null,
-                support_id: supportId,
+                support_type: supportType,
+                support_street: supportStreet || form.street_name || null,
                 street_name: form.street_name || null,
                 road_segment: form.road_segment || null,
                 carriageway_side: form.carriageway_side || null,
@@ -182,10 +148,8 @@ function AddSignModal({ onSaved, onClose }) {
                 reflective_class: form.reflective_class || null,
                 ordinanza_doc: ordinanzaDoc || null,
                 ordinanza_doc_name: ordinanzaDocName || null,
+                photo: photo || null,
             });
-            if (photo) {
-                await localStorageService.savePhoto(signId, photo);
-            }
             onSaved();
         } catch (err) {
             setError('Errore salvataggio: ' + err.message);
@@ -232,58 +196,17 @@ function AddSignModal({ onSaved, onClose }) {
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">Struttura di Supporto (Palo / Portale / Staffa)</label>
-                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                            <button
-                                type="button"
-                                className={`btn ${supportMode === 'existing' ? 'btn-primary' : 'btn-secondary'}`}
-                                onClick={() => setSupportMode('existing')}
-                                style={{ flex: 1, fontSize: '0.85rem' }}
-                                disabled={supports.length === 0}
-                            >
-                                Seleziona Palo Esistente
-                            </button>
-                            <button
-                                type="button"
-                                className={`btn ${supportMode === 'new' ? 'btn-primary' : 'btn-secondary'}`}
-                                onClick={() => setSupportMode('new')}
-                                style={{ flex: 1, fontSize: '0.85rem' }}
-                            >
-                                Crea Nuovo Palo/Supporto
-                            </button>
-                        </div>
-
-                        {supportMode === 'existing' && (
-                            <select className="form-select" value={selectedSupportId} onChange={e => setSelectedSupportId(e.target.value)}>
-                                <option value="">-- Seleziona un palo/supporto --</option>
-                                {supports.map(s => (
-                                    <option key={s.id} value={s.id}>
-                                        Palo #{s.id} ({s.street_name}) - {s.type}
-                                    </option>
-                                ))}
+                        <label className="form-label">Struttura di Supporto</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.5rem' }}>
+                            <select className="form-select" value={supportType} onChange={e => setSupportType(e.target.value)}>
+                                {SUPPORT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                             </select>
-                        )}
-
-                        {supportMode === 'new' && (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                <input
-                                    type="text" className="form-input" style={{ gridColumn: '1 / -1' }}
-                                    value={newSupport.street_name} onChange={e => setNewSupport(p => ({ ...p, street_name: e.target.value }))}
-                                    placeholder="Via del nuovo palo/supporto" required
-                                />
-                                <select className="form-select" value={newSupport.type} onChange={e => setNewSupport(p => ({ ...p, type: e.target.value }))}>
-                                    {SUPPORT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                                </select>
-                                <input
-                                    type="text" className="form-input"
-                                    value={newSupport.condition} onChange={e => setNewSupport(p => ({ ...p, condition: e.target.value }))}
-                                    placeholder="Condizione (opzionale)"
-                                />
-                                <div style={{ fontSize: '0.75rem', color: 'var(--gray-500)', gridColumn: '1 / -1' }}>
-                                    Il nuovo supporto verrà creato con le coordinate GPS indicate sotto.
-                                </div>
-                            </div>
-                        )}
+                            <input
+                                type="text" className="form-input"
+                                value={supportStreet} onChange={e => setSupportStreet(e.target.value)}
+                                placeholder="Via del supporto (opzionale)"
+                            />
+                        </div>
                     </div>
 
                     <div className="form-group">

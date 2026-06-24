@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import syncService from '../services/sync';
 import localStorageService from '../services/localStorage';
-import apiService from '../services/api';
 import MobileMapView from './MobileMapView';
 import MobileAddSign from './MobileAddSign';
 import MobileArchive from './MobileArchive';
@@ -19,9 +17,6 @@ const LOW_STORAGE_THRESHOLD = 100 * 1024 * 1024; // 100MB
 function MobileHome({ user, syncStatus, stats, onDataChange }) {
     const [currentView, setCurrentView] = useState('home');
     const [selectedSign, setSelectedSign] = useState(null);
-    const [isSyncing, setIsSyncing] = useState(false);
-    const [serverUrl, setServerUrl] = useState(apiService.getApiUrl());
-    const [showServerConfig, setShowServerConfig] = useState(false);
     const [storageWarning, setStorageWarning] = useState(null);
     const [censusSession, setCensusSession] = useState(() => getCensusSession());
     const [showCensusForm, setShowCensusForm] = useState(false);
@@ -42,37 +37,6 @@ function MobileHome({ user, syncStatus, stats, onDataChange }) {
     const handleOpenDetails = (sign) => {
         setSelectedSign(sign);
         setCurrentView('details');
-    };
-
-    const handleForceSync = async () => {
-        if (!confirm('Vuoi forzare il caricamento di tutti i dati locali sul server?')) return;
-
-        setIsSyncing(true);
-        try {
-            await localStorageService.resetSyncStatus();
-            await syncService.fullSync();
-            if (onDataChange) onDataChange();
-            alert('Sincronizzazione completata!');
-        } catch (error) {
-            console.error('Errore sync:', error);
-            alert('Errore durante la sincronizzazione: ' + error.message);
-        } finally {
-            setIsSyncing(false);
-        }
-    };
-
-    const handleUsbSync = async () => {
-        setIsSyncing(true);
-        try {
-            await syncService.fullSync();
-            if (onDataChange) onDataChange();
-            alert('Sincronizzazione via cavo completata!');
-        } catch (error) {
-            console.error('Errore sync USB:', error);
-            alert('Errore durante la sincronizzazione: ' + error.message);
-        } finally {
-            setIsSyncing(false);
-        }
     };
 
     const handleExportJson = async () => {
@@ -136,13 +100,6 @@ function MobileHome({ user, syncStatus, stats, onDataChange }) {
         closeCensusSession();
         setCensusSession(null);
         setCensusForm({ via_predefinita: '', ordinanza_predefinita: '' });
-    };
-
-    const handleSaveServerUrl = () => {
-        apiService.setApiUrl(serverUrl);
-        apiService.connectSocket();
-        alert('Indirizzo server salvato: ' + apiService.getApiUrl());
-        setShowServerConfig(false);
     };
 
     if (currentView === 'map') {
@@ -379,64 +336,6 @@ function MobileHome({ user, syncStatus, stats, onDataChange }) {
             >
                 📦 Esporta Dati per Desktop (JSON)
             </button>
-
-            {/* Sync rete (opzionale, solo se connesso) */}
-            {syncStatus.online && (
-                <button
-                    onClick={handleForceSync}
-                    disabled={isSyncing}
-                    className="btn"
-                    style={{
-                        width: '100%',
-                        marginBottom: '0.5rem',
-                        background: isSyncing ? '#ccc' : 'var(--success)',
-                        color: 'white',
-                        padding: '0.75rem'
-                    }}
-                >
-                    {isSyncing ? '⏳ Sincronizzazione...' : '🔄 Sincronizza via Rete'}
-                </button>
-            )}
-
-            {/* Configurazione indirizzo server */}
-            <div style={{ marginBottom: '1.5rem' }}>
-                <button
-                    onClick={() => setShowServerConfig(prev => !prev)}
-                    className="btn btn-secondary"
-                    style={{ width: '100%', padding: '0.5rem', fontSize: '0.875rem' }}
-                >
-                    ⚙️ {showServerConfig ? 'Nascondi' : 'Configura'} indirizzo server ufficio
-                </button>
-
-                {showServerConfig && (
-                    <div style={{
-                        marginTop: '0.5rem',
-                        padding: '0.75rem',
-                        background: 'white',
-                        borderRadius: 'var(--border-radius)',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                    }}>
-                        <label className="form-label" style={{ fontSize: '0.875rem' }}>
-                            Indirizzo server (es. http://192.168.42.1:3000)
-                        </label>
-                        <input
-                            type="text"
-                            className="form-input"
-                            value={serverUrl}
-                            onChange={(e) => setServerUrl(e.target.value)}
-                            placeholder="http://192.168.42.1:3000"
-                            style={{ marginBottom: '0.5rem' }}
-                        />
-                        <button
-                            onClick={handleSaveServerUrl}
-                            className="btn btn-primary"
-                            style={{ width: '100%' }}
-                        >
-                            💾 Salva indirizzo
-                        </button>
-                    </div>
-                )}
-            </div>
 
             {/* Menu Principale */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

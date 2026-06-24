@@ -144,6 +144,33 @@ export const interventionsService = {
     },
 };
 
+// ─── Segnaletica Orizzontale ─────────────────────────────────────────────────
+export const roadMarkingsService = {
+    async getAll() {
+        const snap = await getDocs(query(collection(db, 'road_markings'), orderBy('created_at', 'desc')));
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    },
+
+    async create(data) {
+        const ref = await addDoc(collection(db, 'road_markings'), {
+            ...data,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        });
+        return { id: ref.id, ...data };
+    },
+
+    async update(id, data) {
+        const update = { ...data, updated_at: new Date().toISOString() };
+        await updateDoc(doc(db, 'road_markings', id), update);
+        return { id, ...update };
+    },
+
+    async delete(id) {
+        await deleteDoc(doc(db, 'road_markings', id));
+    },
+};
+
 // ─── Impianti Semaforici ─────────────────────────────────────────────────────
 export const trafficLightsService = {
     async getAll() {

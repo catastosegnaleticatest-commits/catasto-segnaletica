@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import apiService from '../services/api';
+import { signsService, interventionsService } from '../services/firestoreService';
 
 function MobileImportPanel({ user }) {
     const [data, setData] = useState(null);
@@ -44,7 +44,6 @@ function MobileImportPanel({ user }) {
         let interventionsOk = 0;
 
         try {
-            // Import segnali via bulk-import
             const signsPayload = signsToImport.map(s => ({
                 type: s.type,
                 latitude: s.latitude,
@@ -55,20 +54,20 @@ function MobileImportPanel({ user }) {
                 ordinanza_rif: s.ordinanza_rif || null,
                 numero_autorizzazione: s.numero_autorizzazione || null,
                 proprietario: s.proprietario || null,
-                photo: s._photo || null,
+                photo: s._photo || s.photo || null,
+                created_at: s.created_at || new Date().toISOString(),
             }));
 
-            const res = await apiService.bulkImportSigns(signsPayload);
+            const res = await signsService.bulkImport(signsPayload);
             signsOk = res.count;
         } catch (e) {
             errors.push('Segnali: ' + e.message);
         }
 
-        // Import interventi uno per uno (non ci sono API bulk per gli interventi)
         for (const iv of interventions) {
             try {
-                await apiService.createIntervention({
-                    sign_id: iv.sign_id,
+                await interventionsService.create({
+                    sign_id: String(iv.sign_id),
                     type: iv.type,
                     scheduled_date: iv.scheduled_date || null,
                     status: iv.status || 'programmato',

@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react';
-import localStorageService from '../services/localStorage';
-import apiService from '../services/api';
+import { signsService } from '../services/firestoreService';
 import MapCoordinatePicker from './MapCoordinatePicker';
 
 function DesktopAddSign({ user, onDataChange, onBack }) {
@@ -145,25 +144,15 @@ function DesktopAddSign({ user, onDataChange, onBack }) {
         setLoading(true);
 
         try {
-            // Salva il segnale localmente
-            const signId = await localStorageService.saveSign({
+            await signsService.create({
                 type: formData.type,
                 latitude: formData.latitude,
                 longitude: formData.longitude,
                 status: formData.status,
                 notes: formData.notes,
-                installation_date: new Date().toISOString().split('T')[0]
+                installation_date: new Date().toISOString().split('T')[0],
+                photo: formData.photo || null,
             });
-
-            // Salva la foto localmente
-            await localStorageService.savePhoto(signId, formData.photo);
-
-            // Prova a caricare la foto sul server se online
-            try {
-                await apiService.uploadPhoto(signId, formData.photo, true); // true = foto primaria
-            } catch (uploadError) {
-                console.log('Foto non caricata sul server (sarà sincronizzata dopo):', uploadError);
-            }
 
             setSuccess(true);
             setTimeout(() => {

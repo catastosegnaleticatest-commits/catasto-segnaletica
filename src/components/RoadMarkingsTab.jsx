@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import apiService from '../services/api';
+import { roadMarkingsService } from '../services/firestoreService';
 import LocationPickerModal from './LocationPickerModal';
 
 const MARKING_TYPE_LABELS = {
@@ -64,7 +64,7 @@ function RoadMarkingsTab({ user }) {
     const loadMarkings = async () => {
         setLoading(true);
         try {
-            const data = await apiService.getRoadMarkings();
+            const data = await roadMarkingsService.getAll();
             setMarkings(data);
             setError('');
         } catch (err) {
@@ -87,7 +87,7 @@ function RoadMarkingsTab({ user }) {
     const handleCreate = async (e) => {
         e.preventDefault();
         try {
-            await apiService.createRoadMarking({
+            await roadMarkingsService.create({
                 ...formData,
                 latitude: parseFloat(formData.latitude),
                 longitude: parseFloat(formData.longitude),
@@ -103,16 +103,7 @@ function RoadMarkingsTab({ user }) {
 
     const handleStatusChange = async (marking, newStatus) => {
         try {
-            await apiService.updateRoadMarking(marking.id, {
-                street_name: marking.street_name,
-                latitude: marking.latitude,
-                longitude: marking.longitude,
-                marking_type: marking.marking_type,
-                material: marking.material,
-                status: newStatus,
-                length_m: marking.length_m,
-                notes: marking.notes,
-            });
+            await roadMarkingsService.update(marking.id, { status: newStatus });
             await loadMarkings();
         } catch (err) {
             alert('Errore aggiornamento stato: ' + err.message);
@@ -120,9 +111,9 @@ function RoadMarkingsTab({ user }) {
     };
 
     const handleDelete = async (marking) => {
-        if (!window.confirm(`Eliminare definitivamente la segnaletica orizzontale #${marking.id}?`)) return;
+        if (!window.confirm(`Eliminare la segnaletica "${marking.street_name}"?`)) return;
         try {
-            await apiService.deleteRoadMarking(marking.id);
+            await roadMarkingsService.delete(marking.id);
             if (selectedId === marking.id) setSelectedId(null);
             await loadMarkings();
         } catch (err) {
@@ -305,8 +296,8 @@ function RoadMarkingsTab({ user }) {
                                 Visualizza su mappa
                             </a>
                         </p>
-                        {selected.photo_path && (
-                            <img src={apiService.getRoadMarkingPhotoUrl(selected.id)} alt={`Foto elemento #${selected.id}`}
+                        {selected.photo && (
+                            <img src={selected.photo} alt={`Foto elemento #${selected.id}`}
                                 style={{ maxWidth: '100%', maxHeight: '260px', objectFit: 'contain', border: '1px solid #d1d5db', borderRadius: '4px' }} />
                         )}
 
