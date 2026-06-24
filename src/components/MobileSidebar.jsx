@@ -1,12 +1,12 @@
 import { useState } from 'react';
 
-function MobileSidebar({ isOpen, onClose, user, onLogout, syncStatus, stats }) {
+function MobileSidebar({ isOpen, onClose, user, onLogout, onChangePassword, syncStatus, stats }) {
     const menuItems = [
         { icon: '🏠', label: 'Home', action: 'home' },
         { icon: '📊', label: 'Statistiche', action: 'stats' },
         { icon: '🔄', label: 'Sincronizza Ora', action: 'sync' },
+        { icon: '🔑', label: 'Cambia Password', action: 'changePassword' },
         { icon: 'ℹ️', label: 'Informazioni', action: 'info' },
-        { icon: '⚙️', label: 'Impostazioni', action: 'settings' },
         { icon: '🚪', label: 'Esci', action: 'logout' }
     ];
 
@@ -16,18 +16,18 @@ function MobileSidebar({ isOpen, onClose, user, onLogout, syncStatus, stats }) {
                 onClose();
                 break;
             case 'sync':
-                // Trigger sync
                 alert('Sincronizzazione avviata...');
                 onClose();
                 break;
             case 'stats':
                 alert('Funzionalità in sviluppo');
                 break;
+            case 'changePassword':
+                onClose();
+                if (onChangePassword) onChangePassword();
+                break;
             case 'info':
                 alert('Catasto Segnaletica v1.0\n\nApplicazione per la gestione del catasto della segnaletica stradale.');
-                break;
-            case 'settings':
-                alert('Funzionalità in sviluppo');
                 break;
             case 'logout':
                 if (confirm('Sei sicuro di voler uscire?')) {

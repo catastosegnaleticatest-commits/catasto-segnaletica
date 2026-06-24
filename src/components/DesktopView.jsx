@@ -382,7 +382,7 @@ function InterventionsTab({ interventions, signs, user, onDataChange, prefillSig
     );
 }
 
-function DesktopView({ user, syncStatus, stats, onDataChange, onLogout, onSync, darkMode, onToggleDarkMode }) {
+function DesktopView({ user, syncStatus, stats, onDataChange, onLogout, onChangePassword, onSync, darkMode, onToggleDarkMode }) {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [signs, setSigns] = useState([]);
     const [interventions, setInterventions] = useState([]);
@@ -858,6 +858,15 @@ function DesktopView({ user, syncStatus, stats, onDataChange, onLogout, onSync, 
                                 {user?.role}
                             </div>
                         </div>
+                        {onChangePassword && (
+                            <button
+                                onClick={onChangePassword}
+                                title="Cambia Password"
+                                style={{ ...sbBtn, color: '#475569', padding: '0.3rem 0.4rem' }}
+                            >
+                                🔑
+                            </button>
+                        )}
                         <button
                             onClick={onLogout}
                             title="Esci"

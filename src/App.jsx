@@ -4,6 +4,7 @@ import { authService } from './services/authService';
 import { getStats } from './services/firestoreService';
 import LoginPage from './components/LoginPage';
 import ChangePasswordPage from './components/ChangePasswordPage';
+import ChangePassword from './components/ChangePassword';
 import { Capacitor } from '@capacitor/core';
 
 const MobileHome    = lazy(() => import('./components/MobileHome'));
@@ -24,6 +25,7 @@ function App() {
   const [toast, setToast]                           = useState(null);
   const [darkMode, setDarkMode]                     = useState(() => localStorage.getItem('darkMode') !== 'false');
   const [aiBarOpen, setAiBarOpen]                   = useState(false);
+  const [showChangePwd, setShowChangePwd]           = useState(false);
 
   // Ascolta lo stato auth Firebase — si ripristina automaticamente dopo refresh
   useEffect(() => {
@@ -133,12 +135,20 @@ function App() {
       <CommandBar />
       {aiBarOpen && isAuthenticated && <AIBar onClose={() => setAiBarOpen(false)} />}
 
+      {showChangePwd && (
+        <ChangePassword
+          user={user}
+          onClose={() => setShowChangePwd(false)}
+        />
+      )}
+
       {view === 'mobile' && (
         <MobileSidebar
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           user={user}
           onLogout={handleLogout}
+          onChangePassword={() => setShowChangePwd(true)}
           syncStatus={syncStatus}
           stats={stats}
         />
@@ -171,7 +181,7 @@ function App() {
         {view === 'mobile' ? (
           <MobileHome user={user} syncStatus={syncStatus} stats={stats} onDataChange={loadStats} />
         ) : (
-          <DesktopView user={user} syncStatus={syncStatus} stats={stats} onDataChange={loadStats} onLogout={handleLogout} onSync={handleSync} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />
+          <DesktopView user={user} syncStatus={syncStatus} stats={stats} onDataChange={loadStats} onLogout={handleLogout} onChangePassword={() => setShowChangePwd(true)} onSync={handleSync} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />
         )}
       </main>
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import apiService from '../services/api';
+import { authService } from '../services/authService';
 
-function ChangePassword({ user, onPasswordChanged }) {
+function ChangePassword({ user, onPasswordChanged, onClose }) {
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -36,11 +36,10 @@ function ChangePassword({ user, onPasswordChanged }) {
         setLoading(true);
 
         try {
-            await apiService.changePassword(currentPassword, newPassword);
+            await authService.changePassword(currentPassword, newPassword);
             alert('Password cambiata con successo!');
-            if (onPasswordChanged) {
-                onPasswordChanged();
-            }
+            if (onPasswordChanged) onPasswordChanged();
+            if (onClose) onClose();
         } catch (error) {
             console.error('Errore cambio password:', error);
             setError(error.message || 'Errore durante il cambio password');
@@ -68,13 +67,20 @@ function ChangePassword({ user, onPasswordChanged }) {
                 padding: '2rem',
                 position: 'relative'
             }}>
+                {onClose && (
+                    <button onClick={onClose} style={{
+                        position: 'absolute', top: '1rem', right: '1rem',
+                        background: 'none', border: 'none', fontSize: '1.2rem',
+                        cursor: 'pointer', color: 'var(--gray-500)', lineHeight: 1
+                    }}>✕</button>
+                )}
                 <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
                     <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔐</div>
                     <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>
-                        Cambio Password Obbligatorio
+                        Cambia Password
                     </h2>
                     <p style={{ marginTop: '0.5rem', color: 'var(--gray-600)' }}>
-                        Per motivi di sicurezza, devi cambiare la password al primo accesso.
+                        Inserisci la password attuale e scegline una nuova.
                     </p>
                 </div>
 
