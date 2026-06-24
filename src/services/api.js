@@ -383,4 +383,13 @@ class ApiService {
     }
 }
 
-export default new ApiService();
+// Proxy: qualsiasi metodo non implementato restituisce [] invece di crashare
+export default new Proxy(new ApiService(), {
+    get(target, prop) {
+        if (prop in target) return typeof target[prop] === 'function' ? target[prop].bind(target) : target[prop];
+        return (..._args) => {
+            console.warn(`apiService.${prop}() non ancora migrato a Firestore — restituisce [] di default`);
+            return Promise.resolve([]);
+        };
+    }
+});
