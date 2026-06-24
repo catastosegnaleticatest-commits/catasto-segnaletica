@@ -1,42 +1,64 @@
-name: Deploy to GitHub Pages
+name: Deploy su Fly.io
 
 on:
   push:
-    branches: [ main ]
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
-  build:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  deploy:
+    name: Deploy
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+
+      - name: Checkout codice
         uses: actions/checkout@v4
-      - name: Set up Node
+
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20'
           cache: 'npm'
-      - name: Install dependencies
-        run: npm ci
-      - name: Build
-        run: npm run build
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './dist'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+
+      - name: Installa dipendenze
+        run: npm install --ignore-scripts
+
+      - name: Build frontend (con URL cloud)
+        run: npm run build:cloud
+        env:
+          VITE_API_URL: https://catasto-segnaletica.fly.dev
+
+      - name: Installa flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Crea app Fly.io se non esiste
+        run: |
+          flyctl apps list | grep -q catasto-segnaletica \
+            || flyctl apps create catasto-segnaletica --org personal
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Crea volume persistente se non esiste
+        run: |
+          flyctl volumes list --app catasto-segnaletica | grep -q catasto_data \
+            || flyctl volumes create catasto_data \
+                 --app catasto-segnaletica \
+                 --region mxp \
+                 --size 1
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Imposta secrets applicazione
+        run: |
+          flyctl secrets set \
+            JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+            ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}" \
+            ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD }}" \
+            --app catasto-segnaletica
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Deploy
+        run: flyctl deploy --remote-only --app catasto-segnaletica
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

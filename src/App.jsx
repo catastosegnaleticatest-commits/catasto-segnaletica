@@ -1,36 +1,71 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import './App.css';
 import apiService from './services/api';
 import localStorageService from './services/localStorage';
 import syncService from './services/sync';
 import LoginPage from './components/LoginPage';
-import MobileHome from './components/MobileHome';
-import MobileSidebar from './components/MobileSidebar';
-import DesktopView from './components/DesktopView';
-import ChangePassword from './components/ChangePassword';
+import ChangePasswordPage from './components/ChangePasswordPage';
+import { Capacitor } from '@capacitor/core';
+
+// Hash credenziali con Web Crypto API (nessuna dipendenza esterna)
+async function hashCredentials(username, password) {
+  const data = new TextEncoder().encode(`${username}:${password}:catasto-offline-v1`);
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Lazy: caricati solo dopo il login, riducono il bundle iniziale
+const MobileHome    = lazy(() => import('./components/MobileHome'));
+const MobileSidebar = lazy(() => import('./components/MobileSidebar'));
+const DesktopView   = lazy(() => import('./components/DesktopView'));
+const CommandBar    = lazy(() => import('./components/CommandBar'));
+const AIBar         = lazy(() => import('./components/AIBar'));
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
-  const [view, setView] = useState('mobile'); // 'mobile' o 'desktop'
+  const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
+  const [view, setView] = useState('mobile');
   const [syncStatus, setSyncStatus] = useState({ online: false, syncing: false, lastError: null });
   const [stats, setStats] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState(null);
-  const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') !== 'false');
+  const [aiBarOpen, setAiBarOpen] = useState(false);
+
+  // Ref per tracciare se initializeApp è già stato chiamato e per cleanup listener
+  const initialized = useRef(false);
+  const syncCleanupRef = useRef(null);
+  const statusCleanupRef = useRef(null);
 
   useEffect(() => {
-    // Verifica se c'è un token salvato
     const token = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
+    const offlineUser = localStorage.getItem('offlineUser');
+    const isNative = Capacitor.isNativePlatform();
 
-    if (token && savedUser) {
+    if (token && savedUser && !apiService.isTokenExpired()) {
+      // Token valido: accesso automatico normale
+      const parsedUser = JSON.parse(savedUser);
       setIsAuthenticated(true);
-      setUser(JSON.parse(savedUser));
+      setUser(parsedUser);
+      if (parsedUser.requiresPasswordChange) {
+        setRequiresPasswordChange(true);
+      } else {
+        initializeApp();
+      }
+    } else if (isNative && offlineUser) {
+      // APK: token scaduto o assente, ma esiste una sessione offline salvata
+      // → ripristina automaticamente senza chiedere la password
+      const parsedUser = JSON.parse(offlineUser);
+      setIsAuthenticated(true);
+      setUser(parsedUser);
       initializeApp();
+    } else if (!isNative && token && savedUser && apiService.isTokenExpired()) {
+      // Desktop: token scaduto → forza logout per sicurezza
+      handleLogout();
     }
 
-    // Determina la vista in base alla dimensione dello schermo
     const updateView = () => {
       setView(window.innerWidth >= 768 ? 'desktop' : 'mobile');
     };
@@ -42,22 +77,25 @@ function App() {
   }, []);
 
   const initializeApp = async () => {
-    // Connetti WebSocket
+    // Evita inizializzazioni multiple
+    if (initialized.current) return;
+    initialized.current = true;
+
+    // Rimuovi listener precedenti prima di aggiungerne di nuovi
+    if (syncCleanupRef.current) syncCleanupRef.current();
+    if (statusCleanupRef.current) statusCleanupRef.current();
+
     apiService.connectSocket();
 
-    // Listener per eventi di sincronizzazione
-    syncService.onSyncEvent((event, data) => {
-      console.log('Sync event:', event, data);
-
+    syncCleanupRef.current = syncService.onSyncEvent((event, data) => {
       if (event === 'sync:start' || event === 'upload:start' || event === 'download:start') {
         setSyncStatus(prev => ({ ...prev, syncing: true, lastError: null }));
       } else if (event === 'sync:complete') {
         setSyncStatus(prev => ({ ...prev, syncing: false, lastError: null }));
-        showToast('✅ Sincronizzazione completata!', 'success');
         loadStats();
       } else if (event === 'upload:partial') {
         setSyncStatus(prev => ({ ...prev, syncing: false }));
-        const errorMsg = `⚠️ Sync parziale: ${data.uploaded} ok, ${data.failed} falliti. Errori: ${data.errors[0]}`;
+        const errorMsg = `⚠️ Sync parziale: ${data.uploaded} ok, ${data.failed} falliti`;
         showToast(errorMsg, 'error');
         loadStats();
       } else if (event === 'sync:error') {
@@ -68,28 +106,55 @@ function App() {
       }
     });
 
-    // Listener per stato server
-    syncService.onStatusChange((status) => {
+    statusCleanupRef.current = syncService.onStatusChange((status) => {
       setSyncStatus(prev => ({ ...prev, online: status.online }));
     });
 
-    // Verifica stato server
     await syncService.checkServerStatus();
 
-    // Sincronizzazione iniziale immediata (scarica dati dal server)
     try {
-      console.log('🔄 Avvio sincronizzazione iniziale...');
       await syncService.fullSync();
     } catch (error) {
       console.error('Errore sync iniziale:', error);
     }
 
-    // Carica statistiche
     await loadStats();
-
-    // Avvia auto-sync ogni 5 minuti
-    syncService.startAutoSync(5);
   };
+
+  // Toast globale per database occupato (SQLITE_BUSY → HTTP 423)
+  useEffect(() => {
+    const handler = () => showToast('⏳ Database temporaneamente occupato, riprova tra poco.', 'error');
+    window.addEventListener('api:db-busy', handler);
+    return () => window.removeEventListener('api:db-busy', handler);
+  }, []);
+
+  // Shortcut Ctrl+I per aprire/chiudere AI Bar
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.ctrlKey && e.key === 'i' && isAuthenticated) {
+        e.preventDefault();
+        setAiBarOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isAuthenticated]);
+
+  // Logout automatico allo scadere del token (solo desktop/Electron, non APK)
+  useEffect(() => {
+    if (!isAuthenticated || Capacitor.isNativePlatform()) return;
+
+    const checkTokenExpiry = () => {
+      if (apiService.isTokenExpired()) {
+        showToast('⏱️ Sessione scaduta per motivi di sicurezza. Effettua nuovamente il login.', 'error');
+        handleLogout();
+      }
+    };
+
+    checkTokenExpiry();
+    const interval = setInterval(checkTokenExpiry, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
 
   const loadStats = async () => {
     const syncStats = await syncService.getSyncStats();
@@ -106,42 +171,88 @@ function App() {
       const data = await apiService.login(username, password);
       setIsAuthenticated(true);
       setUser(data.user);
-      setRequiresPasswordChange(data.requiresPasswordChange || false);
       localStorage.setItem('user', JSON.stringify(data.user));
-      
-      // Se non richiede cambio password, inizializza l'app
-      if (!data.requiresPasswordChange) {
-        await initializeApp();
+
+      // Salva sessione offline per l'APK (hash credenziali + dati utente)
+      if (Capacitor.isNativePlatform()) {
+        const hash = await hashCredentials(username, password);
+        localStorage.setItem('offlineCredHash', hash);
+        localStorage.setItem('offlineUser', JSON.stringify(data.user));
       }
+
+      if (data.user.requiresPasswordChange) {
+        setRequiresPasswordChange(true);
+        return;
+      }
+
+      await initializeApp();
     } catch (error) {
+      // Password scaduta (>90 giorni): blocca l'app sulla schermata di cambio password forzato
+      if (error.code === 'PASSWORD_EXPIRED') {
+        const expiredUser = { username, requiresPasswordChange: true };
+        setIsAuthenticated(true);
+        setUser(expiredUser);
+        localStorage.setItem('user', JSON.stringify(expiredUser));
+        setRequiresPasswordChange(true);
+        return;
+      }
+
+      // APK: server non raggiungibile → verifica credenziali contro hash locale
+      if (Capacitor.isNativePlatform()) {
+        const savedHash = localStorage.getItem('offlineCredHash');
+        const savedOfflineUser = localStorage.getItem('offlineUser');
+        if (savedHash && savedOfflineUser) {
+          const hash = await hashCredentials(username, password);
+          if (hash === savedHash) {
+            const offlineUser = JSON.parse(savedOfflineUser);
+            setIsAuthenticated(true);
+            setUser(offlineUser);
+            localStorage.setItem('offlineUser', JSON.stringify(offlineUser));
+            await initializeApp();
+            return;
+          }
+        }
+        throw new Error('Credenziali non valide. Connettiti al server almeno una volta per salvare la sessione offline.');
+      }
+
       throw error;
     }
   };
 
   const handlePasswordChanged = async () => {
-    // Ricarica i dati utente per aggiornare password_changed
-    try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        // Il token è già valido, aggiorna solo lo stato
-        setRequiresPasswordChange(false);
-        const updatedUser = { ...user, password_changed: true };
-        setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        await initializeApp();
-      }
-    } catch (error) {
-      console.error('Errore aggiornamento utente:', error);
+    // Il token usato per il cambio password forzato (scaduta da >90gg) ha validità breve:
+    // forza un nuovo login pulito invece di proseguire la sessione con quel token
+    if (!user?.id) {
+      handleLogout();
+      showToast('✅ Password aggiornata. Accedi nuovamente.', 'success');
+      return;
     }
+
+    const updatedUser = { ...user, requiresPasswordChange: false };
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    setRequiresPasswordChange(false);
+    await initializeApp();
   };
 
   const handleLogout = () => {
+    // Cleanup listeners
+    if (syncCleanupRef.current) syncCleanupRef.current();
+    if (statusCleanupRef.current) statusCleanupRef.current();
+    syncCleanupRef.current = null;
+    statusCleanupRef.current = null;
+    initialized.current = false;
+
     apiService.clearToken();
     localStorage.removeItem('user');
-    syncService.stopAutoSync();
     setIsAuthenticated(false);
     setUser(null);
+    setRequiresPasswordChange(false);
     setSidebarOpen(false);
+    setStats(null);
+
+    // In Electron, chiude la finestra invece di tornare al login
+    if (window.desktopApi) window.close();
   };
 
   const handleSync = async () => {
@@ -149,7 +260,6 @@ function App() {
       await syncService.fullSync();
     } catch (error) {
       console.error('Errore sincronizzazione:', error);
-      // Il toast viene già mostrato dal listener sync:error
     }
   };
 
@@ -157,14 +267,29 @@ function App() {
     return <LoginPage onLogin={handleLogin} />;
   }
 
-  // Mostra schermata cambio password se necessario
   if (requiresPasswordChange) {
-    return <ChangePassword user={user} onPasswordChanged={handlePasswordChanged} />;
+    return <ChangePasswordPage onPasswordChanged={handlePasswordChanged} onLogout={handleLogout} />;
   }
 
+  const toggleDarkMode = () => {
+    setDarkMode(prev => {
+      const next = !prev;
+      localStorage.setItem('darkMode', String(next));
+      return next;
+    });
+  };
+
+  const lazyFallback = (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0a0f1e', color: '#64748b', fontSize: '0.9rem' }}>
+      Caricamento...
+    </div>
+  );
+
   return (
-    <div className="app">
-      {/* Mobile Sidebar */}
+    <div className="app" data-theme={darkMode ? 'dark' : 'light'}>
+      <Suspense fallback={null}>
+      <CommandBar />
+      {aiBarOpen && isAuthenticated && <AIBar onClose={() => setAiBarOpen(false)} />}
       {view === 'mobile' && (
         <MobileSidebar
           isOpen={sidebarOpen}
@@ -176,11 +301,10 @@ function App() {
         />
       )}
 
-      <header className="header">
-        <div className="container">
-          <div className="header-content">
-            {/* Hamburger Menu (solo mobile) */}
-            {view === 'mobile' && (
+      {view === 'mobile' && (
+        <header className="header">
+          <div className="container">
+            <div className="header-content">
               <button
                 onClick={() => setSidebarOpen(true)}
                 style={{
@@ -196,35 +320,28 @@ function App() {
               >
                 ☰
               </button>
-            )}
 
-            <h1 className="header-title">📍 Catasto Segnaletica</h1>
+              <h1 className="header-title">📍 Catasto Segnaletica</h1>
 
-            <div className="header-actions">
-              <div className={`sync-status ${syncStatus.syncing ? 'syncing' : syncStatus.online ? 'online' : 'offline'}`}>
-                <span className="sync-indicator"></span>
-                {syncStatus.syncing ? 'Sync...' : syncStatus.online ? 'Online' : 'Offline'}
+              <div className="header-actions">
+                <div className={`sync-status ${syncStatus.syncing ? 'syncing' : syncStatus.online ? 'online' : 'offline'}`}>
+                  <span className="sync-indicator"></span>
+                  {syncStatus.syncing ? 'Sync...' : syncStatus.online ? 'Online' : 'Offline'}
+                </div>
+
+                <button
+                  className="btn btn-sm btn-secondary"
+                  onClick={toggleDarkMode}
+                  title={darkMode ? 'Modalità chiara' : 'Modalità scura'}
+                  style={{ fontSize: '1rem', padding: '0.4rem 0.6rem' }}
+                >
+                  {darkMode ? '☀️' : '🌙'}
+                </button>
               </div>
-
-              {view === 'desktop' && (
-                <>
-                  <button
-                    className="btn btn-sm btn-secondary"
-                    onClick={handleSync}
-                    disabled={syncStatus.syncing}
-                  >
-                    🔄 Sincronizza
-                  </button>
-
-                  <button className="btn btn-sm btn-secondary" onClick={handleLogout}>
-                    🚪 Esci
-                  </button>
-                </>
-              )}
             </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       <main className="main">
         {view === 'mobile' ? (
@@ -240,11 +357,14 @@ function App() {
             syncStatus={syncStatus}
             stats={stats}
             onDataChange={loadStats}
+            onLogout={handleLogout}
+            onSync={handleSync}
+            darkMode={darkMode}
+            onToggleDarkMode={toggleDarkMode}
           />
         )}
       </main>
 
-      {/* Toast Notification */}
       {toast && (
         <div
           style={{
@@ -265,23 +385,7 @@ function App() {
           {toast.message}
         </div>
       )}
-
-      {/* Footer Copyright */}
-      <footer style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        background: 'var(--gray-50)',
-        borderTop: '1px solid var(--gray-200)',
-        padding: '0.5rem 1rem',
-        fontSize: '0.75rem',
-        color: 'var(--gray-600)',
-        textAlign: 'center',
-        zIndex: 100
-      }}>
-        © 2025 Marcello Berneri. Tutti i diritti riservati. Proprietà intellettuale protetta.
-      </footer>
+      </Suspense>
     </div>
   );
 }

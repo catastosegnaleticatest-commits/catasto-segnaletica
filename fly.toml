@@ -1,0 +1,43 @@
+# fly.toml — Configurazione Fly.io per Catasto Segnaletica
+app = "catasto-segnaletica"
+primary_region = "mxp"   # Milan (più vicino all'Italia)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "3000"
+  NODE_ENV = "production"
+  CATASTO_DATA_DIR = "/data"
+  CATASTO_DIST_DIR = "/app/dist"
+
+# I secret (JWT_SECRET, ENCRYPTION_KEY, ADMIN_PASSWORD) vanno impostati
+# con:  fly secrets set JWT_SECRET=xxx ENCRYPTION_KEY=yyy ADMIN_PASSWORD=zzz
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 3000
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "5s"
+
+# Volume persistente per SQLite + foto cifrate
+[mounts]
+  source = "catasto_data"
+  destination = "/data"

@@ -184,6 +184,27 @@ class LocalStorageService {
         return await db.getAll('interventions');
     }
 
+    async getInterventionsBySignId(signId) {
+        const db = await this.db;
+        const all = await db.getAll('interventions');
+        return all.filter(i => i.sign_id === signId || i.sign_id === String(signId));
+    }
+
+    async updateIntervention(id, data) {
+        const db = await this.db;
+        const existing = await db.get('interventions', id);
+        const updated = { ...existing, ...data, synced: false, updated_at: new Date().toISOString() };
+        await db.put('interventions', updated);
+        await this.addToSyncQueue('update', 'interventions', id, updated);
+        return updated;
+    }
+
+    async deleteIntervention(id) {
+        const db = await this.db;
+        await db.delete('interventions', id);
+        await this.addToSyncQueue('delete', 'interventions', id);
+    }
+
     // === SYNC QUEUE ===
     async addToSyncQueue(operation, tableName, recordId, data = null) {
         const db = await this.db;
@@ -293,6 +314,43 @@ class LocalStorageService {
             unsyncedSigns: signs.filter(s => !s.synced).length,
             totalInterventions: interventions.length,
             pendingSync: syncQueue.length
+        };
+    }
+
+    // === EXPORT PER USB ===
+    // Crea un pacchetto JSON completo di tutti i dati locali (segnali + foto + interventi)
+    // da trasferire sul desktop via cavo USB/email/chiavetta
+    async exportAllForUsb() {
+        const signs = await this.getSigns();
+        const interventions = await this.getInterventions();
+
+        // Allega foto decifrata ad ogni segnale
+        const signsWithPhotos = await Promise.all(signs.map(async (sign) => {
+            const photo = await this.getPhoto(sign.id);
+            return { ...sign, _photo: photo || null };
+        }));
+
+        return {
+            _version: 1,
+            _exported_at: new Date().toISOString(),
+            _device: navigator.userAgent,
+            signs: signsWithPhotos,
+            interventions,
+        };
+    }
+
+    // === STORAGE ESTIMATE ===
+    // Restituisce lo spazio residuo stimato (in byte) tramite navigator.storage.estimate()
+    async getStorageEstimate() {
+        if (!navigator.storage || !navigator.storage.estimate) {
+            return null;
+        }
+
+        const { usage, quota } = await navigator.storage.estimate();
+        return {
+            usage,
+            quota,
+            available: quota - usage,
         };
     }
 

@@ -1,22 +1,49 @@
 {
   "name": "catastosegnaletica",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
+    "postinstall": "electron-rebuild -f -w better-sqlite3,bcrypt -v 33.4.11 --module-dir server",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist",
+    "electron": "electron .",
+    "electron:dev": "set ELECTRON_BUILD=true&& vite build && electron .",
+    "package:windows": "set ELECTRON_BUILD=true&& vite build && electron-builder --win portable",
+    "package:windows:installer": "set ELECTRON_BUILD=true&& vite build && electron-builder --win nsis",
+    "package:windows:all": "set ELECTRON_BUILD=true&& vite build && electron-builder --win",
+    "build:cloud": "vite build --mode production",
+    "deploy:cloud": "npm run build:cloud && fly deploy",
+    "package:apk:cloud": "npm run build:cloud && npx cap sync android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/geolocation": "^8.2.0",
+    "@capacitor/share": "^8.0.1",
+    "@tensorflow-models/mobilenet": "^2.1.1",
+    "@tensorflow/tfjs": "^4.22.0",
     "crypto-js": "^4.2.0",
+    "express-rate-limit": "^8.5.2",
     "idb": "^8.0.3",
     "leaflet": "^1.9.4",
+    "leaflet.heat": "^0.2.0",
+    "pdf-parse": "^2.4.5",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-leaflet": "^5.0.0",
-    "socket.io-client": "^4.8.1"
+    "react-leaflet-cluster": "^4.1.3",
+    "socket.io-client": "^4.8.1",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
@@ -24,16 +51,97 @@
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "electron-updater": "^6.3.9",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
+    "fake-indexeddb": "^6.2.5",
+    "gh-pages": "^6.3.0",
     "globals": "^16.5.0",
-    "vite": "^7.2.4"
+    "jsdom": "^29.1.1",
+    "vite": "^7.2.4",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^4.1.8"
   },
   "description": "Applicazione web per la gestione del catasto della segnaletica stradale",
-  "main": "eslint.config.js",
   "keywords": ["catasto", "segnaletica", "stradale"],
   "author": "Marcello Berneri",
   "license": "UNLICENSED",
-  "private": true
+  "build": {
+    "appId": "it.comune.catastosegnaletica",
+    "productName": "Catasto Segnaletica",
+    "copyright": "Copyright © 2026 Comune — Tutti i diritti riservati",
+    "directories": {
+      "output": "release"
+    },
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**",
+      "node_modules/bcrypt/**",
+      "node_modules/node-llama-cpp/**",
+      "node_modules/electron-updater/**"
+    ],
+    "files": [
+      "electron/**/*",
+      "dist/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "server",
+        "to": "server",
+        "filter": [
+          "**/*",
+          "!data/**",
+          "!backups/**",
+          "!feedback/**"
+        ]
+      },
+      {
+        "from": "models",
+        "to": "models",
+        "filter": [
+          "**/*.gguf"
+        ]
+      },
+      {
+        "from": "dist",
+        "to": "dist"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-Setup-${arch}.${ext}",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Catasto Segnaletica",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "license": "build/license.txt",
+      "language": "1040"
+    },
+    "publish": {
+      "provider": "generic",
+      "url": "${env.UPDATE_SERVER_URL:-http://update.comune.local/catasto}"
+    }
+  }
 }

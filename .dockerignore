@@ -1,0 +1,11 @@
+node_modules
+android
+electron
+release
+.git
+*.md
+*.log
+server/data
+server/feedback
+.env
+.env.local
