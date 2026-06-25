@@ -9,6 +9,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
@@ -65,9 +66,9 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
-    // Audit log — lettura solo admin; scrittura per tutti gli autenticati
+    // Audit log — lettura per tutti gli autenticati; scrittura per tutti gli autenticati
     match /audit_log/{logId} {
-      allow read: if isAdmin();
+      allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update, delete: if false;
     }
