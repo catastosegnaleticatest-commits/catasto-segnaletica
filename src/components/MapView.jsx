@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, WMSTileLayer, LayersControl, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, WMSTileLayer, LayersControl, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import { useEffect, useState, useRef } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -29,6 +29,16 @@ function FlyTo({ coords }) {
     return null;
 }
 
+// Traccia zoom corrente e visibilità overlay catastale
+function CadastralZoomWarning({ onZoomChange, onOverlayChange }) {
+    useMapEvents({
+        zoomend: (e) => onZoomChange(e.target.getZoom()),
+        overlayadd: (e) => { if (e.name.includes('Catastale')) onOverlayChange(true); },
+        overlayremove: (e) => { if (e.name.includes('Catastale')) onOverlayChange(false); },
+    });
+    return null;
+}
+
 function MapView({ signs, onSignClick, onOpenDetails }) {
     const [filterType, setFilterType] = useState('tutti');
     const [filterStatus, setFilterStatus] = useState('tutti');
@@ -36,10 +46,13 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
     const [searchResults, setSearchResults] = useState([]);
     const [flyCoords, setFlyCoords] = useState(null);
     const [searching, setSearching] = useState(false);
+    const [currentZoom, setCurrentZoom] = useState(6);
+    const [cadastralActive, setCadastralActive] = useState(true);
     const searchTimeout = useRef(null);
 
     const defaultCenter = [41.9028, 12.4964];
     const defaultZoom = 6;
+    const CADASTRAL_MIN_ZOOM = 16;
 
     const signTypes = ['tutti', 'divieto', 'obbligo', 'pericolo', 'indicazione', 'precedenza'];
     const signStatuses = ['tutti', 'ottimo', 'buono', 'discreto', 'danneggiato'];
@@ -188,20 +201,39 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                             />
                         </LayersControl.BaseLayer>
 
-                        {/* Overlay WMS ufficiale Agenzia delle Entrate — particelle con numero */}
+                        {/* Overlay WMS Agenzia delle Entrate — Geoportale Cartografico Nazionale */}
                         <LayersControl.Overlay checked name="📋 Particelle Catastali (ADE)">
                             <WMSTileLayer
-                                url="https://wms.cartografia.agenziaentrate.gov.it/inspire/wms/ows01.php"
-                                layers="CP.CadastralParcel"
+                                url="https://wms.cartografia.agenziaentrate.gov.it/geoserver/wms"
+                                layers="province,comuni,fogli,particelle,fabbricati"
                                 format="image/png"
                                 transparent={true}
-                                version="1.3.0"
                                 attribution='&copy; <a href="https://www.agenziaentrate.gov.it">Agenzia delle Entrate</a>'
-                                opacity={0.8}
+                                maxZoom={20}
+                                opacity={0.7}
                             />
                         </LayersControl.Overlay>
 
                     </LayersControl>
+
+                    <CadastralZoomWarning
+                        onZoomChange={setCurrentZoom}
+                        onOverlayChange={setCadastralActive}
+                    />
+
+                    {/* Banner avviso zoom catastale */}
+                    {cadastralActive && currentZoom < CADASTRAL_MIN_ZOOM && (
+                        <div style={{
+                            position: 'absolute', bottom: '2.5rem', left: '50%', transform: 'translateX(-50%)',
+                            zIndex: 1000, background: 'rgba(245,158,11,0.95)', color: '#1c1917',
+                            padding: '0.5rem 1rem', borderRadius: '8px', fontSize: '0.8rem',
+                            fontWeight: 600, boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                            display: 'flex', alignItems: 'center', gap: '0.4rem',
+                            pointerEvents: 'none', whiteSpace: 'nowrap',
+                        }}>
+                            🔍 Fai zoom avanti (≥ livello {CADASTRAL_MIN_ZOOM}) per vedere le particelle catastali
+                        </div>
+                    )}
 
                     {filteredSigns.length > 0 && <MapBounds signs={filteredSigns} />}
                     {flyCoords && <FlyTo coords={flyCoords} />}
