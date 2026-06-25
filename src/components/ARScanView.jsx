@@ -82,7 +82,7 @@ export default function ARScanView({ onBack }) {
         let mounted = true;
         (async () => {
             try {
-                // Import dinamico per non bloccare il bundle principale
+                await import('@tensorflow/tfjs');
                 const mobilenet = await import('@tensorflow-models/mobilenet');
                 const model = await mobilenet.load({ version: 2, alpha: 0.5 });
                 if (mounted) {
@@ -91,7 +91,7 @@ export default function ARScanView({ onBack }) {
                 }
             } catch (e) {
                 if (mounted) {
-                    setModelError('MobileNet non disponibile: ' + e.message);
+                    setModelError(e.message || String(e));
                     setModelLoading(false);
                 }
             }
@@ -317,8 +317,8 @@ export default function ARScanView({ onBack }) {
                     <div style={{ background: 'rgba(0,0,0,0.6)', color: heading != null ? '#60a5fa' : '#94a3b8', borderRadius: 6, padding: '0.25rem 0.5rem', fontSize: '0.72rem', fontWeight: 600 }}>
                         🧭 {heading != null ? `${Math.round(heading)}°` : 'No bussola'}
                     </div>
-                    <div style={{ background: 'rgba(0,0,0,0.6)', color: modelLoading ? '#fbbf24' : modelError ? '#ef4444' : '#4ade80', borderRadius: 6, padding: '0.25rem 0.5rem', fontSize: '0.72rem', fontWeight: 600 }}>
-                        🧠 {modelLoading ? 'Caricamento AI...' : modelError ? 'AI non disp.' : 'AI pronto'}
+                    <div style={{ background: 'rgba(0,0,0,0.6)', color: modelLoading ? '#fbbf24' : modelError ? '#ef4444' : '#4ade80', borderRadius: 6, padding: '0.25rem 0.5rem', fontSize: '0.72rem', fontWeight: 600, maxWidth: '90vw', wordBreak: 'break-all' }}>
+                        🧠 {modelLoading ? 'Caricamento AI...' : modelError ? `ERR: ${modelError}` : 'AI pronto'}
                     </div>
                     {scanning && (
                         <div style={{ background: 'rgba(0,255,200,0.15)', border: '1px solid #00ffcc', color: '#00ffcc', borderRadius: 6, padding: '0.25rem 0.5rem', fontSize: '0.72rem', fontWeight: 700, animation: 'pulse 1s infinite' }}>

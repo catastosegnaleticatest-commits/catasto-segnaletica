@@ -144,18 +144,18 @@ function MobileSidebar({ isOpen, onClose, user, onLogout, onChangePassword, sync
                                 width: '100%',
                                 padding: '1rem 1.5rem',
                                 border: 'none',
-                                borderBottom: '1px solid var(--gray-100)',
+                                borderBottom: '1px solid #f3f4f6',
                                 background: 'white',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '1rem',
                                 fontSize: '1rem',
-                                color: item.action === 'logout' ? 'var(--danger)' : 'var(--gray-900)',
+                                color: item.action === 'logout' ? '#ef4444' : '#111827',
                                 transition: 'background 0.2s',
                                 textAlign: 'left'
                             }}
-                            onMouseEnter={(e) => e.target.style.background = 'var(--gray-50)'}
+                            onMouseEnter={(e) => e.target.style.background = '#f9fafb'}
                             onMouseLeave={(e) => e.target.style.background = 'white'}
                         >
                             <span style={{ fontSize: '1.5rem' }}>{item.icon}</span>
