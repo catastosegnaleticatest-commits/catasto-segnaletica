@@ -88,8 +88,27 @@ function BrowserAIPanel() {
                 )}
                 {status === 'error' && (
                     <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid var(--danger)', borderRadius: 8, padding: '0.75rem', fontSize: '0.875rem' }}>
-                        <div style={{ fontWeight: 700, color: 'var(--danger)', marginBottom: '0.35rem' }}>❌ Impossibile connettersi</div>
-                        <div style={{ color: 'var(--gray-600)', fontFamily: 'monospace', fontSize: '0.8rem' }}>{errorMsg}</div>
+                        <div style={{ fontWeight: 700, color: 'var(--danger)', marginBottom: '0.5rem' }}>❌ Impossibile connettersi</div>
+                        {window.location.protocol === 'https:' ? (
+                            <div style={{ color: 'var(--gray-700)', lineHeight: 1.7 }}>
+                                <strong>Blocco Mixed-Content:</strong> il browser impedisce chiamate HTTP da una pagina HTTPS.
+                                <br />Soluzioni:
+                                <ol style={{ margin: '0.4rem 0 0', paddingLeft: '1.2rem' }}>
+                                    <li>Usa l'app in locale: <code style={{ background: 'var(--gray-100)', padding: '1px 4px', borderRadius: 3 }}>npm run dev</code> → apri <code>http://localhost:5173</code></li>
+                                    <li>Oppure in Chrome: vai su <code>chrome://flags/#block-insecure-private-network-requests</code> e disabilita</li>
+                                </ol>
+                            </div>
+                        ) : (
+                            <div style={{ color: 'var(--gray-700)', lineHeight: 1.7 }}>
+                                <strong>Errore:</strong> <code style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{errorMsg}</code>
+                                <br />Verifica:
+                                <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.2rem' }}>
+                                    <li>LM Studio è aperto e il server è <strong>avviato</strong> (pulsante "Start Server")</li>
+                                    <li>La porta è <strong>1234</strong> (o correggi l'URL sopra)</li>
+                                    <li>In LM Studio → Server Settings → abilita <strong>Allow Cross-Origin Requests (CORS)</strong></li>
+                                </ul>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
