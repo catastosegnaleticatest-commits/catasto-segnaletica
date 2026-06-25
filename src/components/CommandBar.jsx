@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import apiService from '../services/api';
 
 export default function CommandBar() {
     const [isOpen, setIsOpen] = useState(false);
@@ -30,15 +29,14 @@ export default function CommandBar() {
         e.preventDefault();
         const text = feedbackText.trim();
         if (!text) return;
-        // Chiudi subito — l'analisi AI gira in background sul server
         setFeedbackText('');
         setIsOpen(false);
-        const token = localStorage.getItem('token');
-        fetch(`${apiService.getApiUrl()}/api/feedback/submit`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ text }),
-        }).catch(() => {});
+        // Salva feedback in localStorage per consultazione futura
+        try {
+            const feedbacks = JSON.parse(localStorage.getItem('feedbacks') || '[]');
+            feedbacks.push({ text, date: new Date().toISOString() });
+            localStorage.setItem('feedbacks', JSON.stringify(feedbacks.slice(-50)));
+        } catch { /* ignore */ }
     };
 
     if (!isOpen) return null;

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import apiService from '../services/api';
+import lmStudioService from '../services/lmStudioService';
+import { signsService } from '../services/firestoreService';
 
 const SPATIAL_KEYWORDS = ['disegna', 'posiziona', 'stalli', 'stallo', 'parcheggio', 'parcheggi', 'layout parcheggio', 'apri la mappa', 'apri mappa', 'genera stalli'];
 
@@ -181,7 +182,9 @@ function AIBar({ onClose }) {
     const inputRef = useRef(null);
 
     useEffect(() => {
-        apiService.getAiStatus().then(s => setAiAvailable(s.available));
+        lmStudioService.ping()
+            .then(() => setAiAvailable(true))
+            .catch(() => setAiAvailable(false));
         inputRef.current?.focus();
     }, []);
 
@@ -202,27 +205,28 @@ function AIBar({ onClose }) {
         try {
             const isSpatial = mode === 'sql' && SPATIAL_KEYWORDS.some(kw => q.toLowerCase().includes(kw));
             if (isSpatial) {
-                const result = await apiService.spatialCommand(q, null, null, 0, 1);
-                if (result.geojson) {
-                    window.dispatchEvent(new CustomEvent('ai-spatial-render', {
-                        detail: { geojson: result.geojson, anchor: result.anchor, params: result.params }
-                    }));
-                    setMessages(prev => [...prev, {
-                        role: 'ai', type: 'spatial',
-                        explanation: result.message || `Ho disegnato ${result.geojson.features.length} stalli sulla mappa. Passa alla scheda Mappa per vederli e usare i controlli di editing (rotazione, cambio lato, salvataggio).`
-                    }]);
-                } else {
-                    setMessages(prev => [...prev, { role: 'error', text: result.error || 'Impossibile generare il layout spaziale. Prova a specificare via, numero stalli e tipo (parallelo/perpendicolare).' }]);
-                }
+                // Comandi spaziali richiedono il server Electron — informa l'utente
+                setMessages(prev => [...prev, {
+                    role: 'error',
+                    text: 'I comandi spaziali (disegno stalli) sono disponibili solo nell\'app desktop Electron. Per il browser usa la modalità 🗄️ Database o 📄 Documenti.'
+                }]);
             } else if (mode === 'sql') {
-                const result = await apiService.aiBarQuery(q);
-                setMessages(prev => [...prev, { role: 'ai', type: 'sql', explanation: result.explanation, sql: result.sql, rows: result.rows, rowCount: result.rowCount }]);
+                // Carica i segnali da Firestore e passa al modello locale
+                const signs = await signsService.getAll().catch(() => []);
+                const result = await lmStudioService.askSql(q, signs);
+                setMessages(prev => [...prev, { role: 'ai', type: 'sql', explanation: result.explanation, rows: result.rows, rowCount: result.rowCount }]);
             } else {
-                const result = await apiService.ragQuery(q);
+                const result = await lmStudioService.askRag(q);
                 setMessages(prev => [...prev, { role: 'ai', type: 'rag', answer: result.answer, sources: result.sources }]);
             }
         } catch (err) {
-            setMessages(prev => [...prev, { role: 'error', text: err.message }]);
+            const isConnErr = err.message.includes('Failed to fetch') || err.message.includes('NetworkError');
+            setMessages(prev => [...prev, {
+                role: 'error',
+                text: isConnErr
+                    ? 'LM Studio non raggiungibile. Avvia LM Studio, carica un modello e attiva il server locale (porta 1234). Poi configura l\'URL in Impostazioni → Configurazione AI.'
+                    : err.message
+            }]);
         } finally {
             setLoading(false);
             setTimeout(() => inputRef.current?.focus(), 100);

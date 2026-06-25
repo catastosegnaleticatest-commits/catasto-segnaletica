@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import lmStudioService, { setBaseUrl, getConfiguredUrl } from '../services/lmStudioService';
 
 const MODEL_NAME = 'Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf';
 const MODEL_SIZE_GB = 4.7;
@@ -23,6 +24,96 @@ function Row({ ok, children }) {
 const isElectron = typeof window !== 'undefined' &&
     (window.navigator.userAgent.includes('Electron') || !!window.__ELECTRON__);
 
+// ── Pannello LM Studio per utenti browser ────────────────────────────────────
+function BrowserAIPanel() {
+    const [url, setUrl] = useState(getConfiguredUrl);
+    const [status, setStatus] = useState(null); // null | 'checking' | 'ok' | 'error'
+    const [models, setModels] = useState([]);
+    const [errorMsg, setErrorMsg] = useState('');
+
+    async function handlePing() {
+        setStatus('checking');
+        setErrorMsg('');
+        try {
+            const list = await lmStudioService.ping();
+            setModels(Array.isArray(list) ? list.map(m => m.id) : []);
+            setStatus('ok');
+        } catch (e) {
+            setErrorMsg(e.message);
+            setStatus('error');
+        }
+    }
+
+    function handleSave() {
+        setBaseUrl(url);
+        handlePing();
+    }
+
+    return (
+        <div style={{ padding: '1.5rem', maxWidth: 680, overflowY: 'auto', height: '100%' }}>
+            <h2 style={{ marginBottom: '0.25rem' }}>🤖 Configurazione AI — LM Studio</h2>
+            <p style={{ color: 'var(--gray-500)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+                L'app usa <strong>LM Studio</strong> come server AI locale (API compatibile OpenAI).
+                Il modello gira sul tuo PC — nessun dato viene inviato a servizi esterni.
+            </p>
+
+            {/* Connessione */}
+            <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
+                <div style={{ fontWeight: 700, marginBottom: '0.75rem' }}>🔌 Connessione a LM Studio</div>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <input
+                        type="text"
+                        value={url}
+                        onChange={e => setUrl(e.target.value)}
+                        placeholder="http://localhost:1234/v1"
+                        style={{ flex: 1, padding: '0.5rem 0.75rem', borderRadius: 8, border: '1px solid var(--gray-300)', fontSize: '0.875rem', fontFamily: 'monospace' }}
+                    />
+                    <button className="btn btn-primary" onClick={handleSave} style={{ whiteSpace: 'nowrap' }}>
+                        Salva & Testa
+                    </button>
+                </div>
+
+                {status === 'checking' && (
+                    <p style={{ fontSize: '0.85rem', color: 'var(--gray-500)', margin: 0 }}>⏳ Connessione in corso...</p>
+                )}
+                {status === 'ok' && (
+                    <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid var(--success)', borderRadius: 8, padding: '0.75rem', fontSize: '0.875rem' }}>
+                        <div style={{ fontWeight: 700, color: 'var(--success)', marginBottom: '0.35rem' }}>✅ LM Studio raggiungibile</div>
+                        {models.length > 0 && (
+                            <div style={{ color: 'var(--gray-600)' }}>
+                                Modelli disponibili: {models.map(m => <code key={m} style={{ background: 'var(--gray-100)', padding: '1px 5px', borderRadius: 3, marginRight: 4 }}>{m}</code>)}
+                            </div>
+                        )}
+                    </div>
+                )}
+                {status === 'error' && (
+                    <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid var(--danger)', borderRadius: 8, padding: '0.75rem', fontSize: '0.875rem' }}>
+                        <div style={{ fontWeight: 700, color: 'var(--danger)', marginBottom: '0.35rem' }}>❌ Impossibile connettersi</div>
+                        <div style={{ color: 'var(--gray-600)', fontFamily: 'monospace', fontSize: '0.8rem' }}>{errorMsg}</div>
+                    </div>
+                )}
+            </div>
+
+            {/* Istruzioni */}
+            <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
+                <div style={{ fontWeight: 700, marginBottom: '0.75rem' }}>📋 Come usare LM Studio</div>
+                <ol style={{ margin: 0, paddingLeft: '1.25rem', lineHeight: 1.9, fontSize: '0.875rem', color: 'var(--gray-700)' }}>
+                    <li>Apri <strong>LM Studio</strong> sul PC</li>
+                    <li>Carica il tuo modello GGUF dalla libreria locale</li>
+                    <li>Vai su <em>Local Server</em> e clicca <strong>Start Server</strong></li>
+                    <li>Assicurati che la porta sia <code style={{ background: 'var(--gray-100)', padding: '1px 5px', borderRadius: 3 }}>1234</code> (default)</li>
+                    <li>Clicca <strong>Salva & Testa</strong> qui sopra — se appare ✅ sei pronto</li>
+                    <li>Usa <kbd>Ctrl+I</kbd> per aprire l'assistente AI</li>
+                </ol>
+            </div>
+
+            <div className="card" style={{ padding: '1rem', background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.3)', fontSize: '0.82rem', color: 'var(--gray-600)' }}>
+                <strong>💡 Suggerimento CORS:</strong> in LM Studio → Server Settings → abilita <em>Allow Cross-Origin Requests</em> per permettere le chiamate dal browser.
+            </div>
+        </div>
+    );
+}
+
 export default function AISetupPanel() {
     const [hw, setHw] = useState(null);
     const [aiStatus, setAiStatus] = useState(null);
@@ -44,59 +135,7 @@ export default function AISetupPanel() {
 
     // ── Browser (non-Electron) ────────────────────────────────────────────────
     if (!isElectron) {
-        return (
-            <div style={{ padding: '1.5rem', maxWidth: 680 }}>
-                <h2 style={{ marginBottom: '0.25rem' }}>🤖 Configurazione AI Locale</h2>
-                <p style={{ color: 'var(--gray-500)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-                    Il modello AI gira direttamente sul PC — nessun dato viene inviato a server esterni.
-                </p>
-
-                <div className="card" style={{ padding: '1.25rem', background: 'rgba(245,158,11,0.08)', border: '1px solid var(--warning)', marginBottom: '1rem' }}>
-                    <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>🖥️ Disponibile solo nell'app desktop</div>
-                    <p style={{ fontSize: '0.875rem', margin: 0, color: 'var(--gray-600)' }}>
-                        L'AI locale (classificazione segnali, chatbot, analisi conformità) richiede l'applicazione
-                        Electron installata sul PC. Nel browser questa sezione mostra solo i requisiti.
-                    </p>
-                </div>
-
-                <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
-                    <div style={{ fontWeight: 700, marginBottom: '0.75rem' }}>📊 Requisiti Hardware Minimi</div>
-                    <Row ok={null}>RAM: almeno {MIN_RAM_GB} GB liberi durante l'utilizzo</Row>
-                    <Row ok={null}>Disco: almeno {MIN_DISK_GB} GB liberi per il file modello</Row>
-                    <Row ok={null}>CPU: almeno 4 core (consigliati 8+)</Row>
-                    <Row ok={null}>File modello: <strong>{MODEL_NAME}</strong> (~{MODEL_SIZE_GB} GB)</Row>
-                </div>
-
-                <div className="card" style={{ padding: '1.25rem' }}>
-                    <div style={{ fontWeight: 700, marginBottom: '0.75rem' }}>📥 Installa il modello AI</div>
-                    <ol style={{ margin: '0 0 1rem', paddingLeft: '1.25rem', lineHeight: 1.9, fontSize: '0.875rem' }}>
-                        <li>Scarica <strong>{MODEL_NAME}</strong> (~{MODEL_SIZE_GB} GB) da HuggingFace</li>
-                        <li>Spostalo nella cartella <code style={{ background: 'var(--gray-100)', padding: '1px 5px', borderRadius: 3 }}>models/</code> della directory dell'applicazione Electron</li>
-                        <li>Riavvia l'applicazione desktop</li>
-                    </ol>
-                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                        <a
-                            href={HUGGINGFACE_URL}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ display: 'inline-block', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: 'white', textDecoration: 'none', padding: '0.6rem 1.2rem', borderRadius: 8, fontWeight: 600, fontSize: '0.875rem' }}
-                        >
-                            ⬇️ Scarica da HuggingFace ({MODEL_SIZE_GB} GB)
-                        </a>
-                        <button
-                            className="btn btn-secondary"
-                            onClick={() => { navigator.clipboard?.writeText(HUGGINGFACE_URL); alert('URL copiato!'); }}
-                        >
-                            📋 Copia link
-                        </button>
-                    </div>
-                    <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(245,158,11,0.08)', border: '1px solid var(--warning)', borderRadius: 8, fontSize: '0.8rem', color: 'var(--gray-600)' }}>
-                        <strong>⚠️ PC aziendale:</strong> il download potrebbe essere bloccato dalla rete o dall'antivirus.
-                        Scarica da casa e trasferisci con una chiavetta USB nella cartella <code>models/</code>.
-                    </div>
-                </div>
-            </div>
-        );
+        return <BrowserAIPanel />;
     }
 
     // ── Electron — caricamento ────────────────────────────────────────────────
