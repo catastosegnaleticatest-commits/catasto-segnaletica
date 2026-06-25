@@ -109,7 +109,7 @@ function MobileSignDetails({ sign: initialSign, onBack }) {
                                 {sign.installation_date && (
                                     <div><strong>Data Installazione:</strong> {new Date(sign.installation_date).toLocaleDateString('it-IT')}</div>
                                 )}
-                                <div><strong>Stato Sync:</strong> {sign.synced ? '✅ Sincronizzato' : '⏳ In attesa'}</div>
+                                <div><strong>Archiviazione:</strong> ✅ Su Firestore</div>
                             </div>
                         </div>
                     </div>

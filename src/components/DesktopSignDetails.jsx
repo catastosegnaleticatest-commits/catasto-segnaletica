@@ -250,7 +250,7 @@ function DesktopSignDetails({ sign, onBack }) {
                                 <div style={{ fontSize: '0.875rem', color: 'var(--gray-600)' }}>METADATI</div>
                                 <div style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
                                     <div><strong>Creato il:</strong> {sign.created_at ? new Date(sign.created_at).toLocaleString('it-IT') : 'N/A'}</div>
-                                    <div><strong>Stato Sync:</strong> {sign.synced ? '✅ Sincronizzato' : '⏳ In attesa di sync'}</div>
+                                    <div><strong>Archiviazione:</strong> ✅ Su Firestore</div>
                                 </div>
                             </div>
                         </div>

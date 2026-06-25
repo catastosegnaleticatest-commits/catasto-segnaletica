@@ -130,7 +130,7 @@ function MobileArchive({ user, onDataChange, onBack }) {
                             )}
 
                             <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--gray-500)' }}>
-                                {sign.synced ? '✅ Sincronizzato' : '⏳ Da sincronizzare'}
+                                ✅ Su Firestore
                             </div>
                         </div>
                     ))}

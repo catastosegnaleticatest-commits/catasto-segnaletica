@@ -814,32 +814,11 @@ function DesktopView({ user, syncStatus, stats, onDataChange, onLogout, onChange
                                 <div style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1 }}>{stats.local?.totalSigns || 0}</div>
                                 <div style={{ color: '#2d3f58', fontSize: '0.6rem', marginTop: '0.1rem' }}>Segnali</div>
                             </div>
-                            <div style={{ flex: 1, background: '#0a0f1e', borderRadius: 6, padding: '0.35rem', textAlign: 'center' }}>
-                                <div style={{ color: (stats.local?.pendingSync || 0) > 0 ? '#fbbf24' : '#4ade80', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1 }}>
-                                    {stats.local?.pendingSync || 0}
-                                </div>
-                                <div style={{ color: '#2d3f58', fontSize: '0.6rem', marginTop: '0.1rem' }}>Da sync</div>
-                            </div>
                         </div>
                     )}
 
-                    {/* Sync + dark mode */}
+                    {/* Dark mode */}
                     <div style={{ display: 'flex', gap: '0.4rem' }}>
-                        <button
-                            onClick={onSync}
-                            disabled={syncStatus?.syncing}
-                            title={syncStatus?.syncing ? 'Sincronizzazione in corso...' : syncStatus?.online ? 'Online — clicca per sincronizzare' : 'Offline'}
-                            style={{
-                                ...sbBtn, flex: 1, display: 'flex', alignItems: 'center', gap: '0.3rem', justifyContent: 'center',
-                                color: syncStatus?.syncing ? '#fbbf24' : syncStatus?.online ? '#4ade80' : '#f87171'
-                            }}
-                        >
-                            <span style={{
-                                width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                                background: syncStatus?.syncing ? '#fbbf24' : syncStatus?.online ? '#4ade80' : '#f87171'
-                            }} />
-                            {syncStatus?.syncing ? 'Sync...' : '🔄 Sync'}
-                        </button>
                         {onToggleDarkMode && (
                             <button
                                 onClick={onToggleDarkMode}
@@ -981,7 +960,6 @@ function DesktopView({ user, syncStatus, stats, onDataChange, onLogout, onChange
                                             <th style={{ padding: '0.75rem' }}>Data</th>
                                             <th style={{ padding: '0.75rem' }}>Età</th>
                                             <th style={{ padding: '0.75rem' }}>Note</th>
-                                            <th style={{ padding: '0.75rem' }}>Sync</th>
                                             <th style={{ padding: '0.75rem', textAlign: 'right' }}>Azioni</th>
                                         </tr>
                                     </thead>
@@ -1017,7 +995,6 @@ function DesktopView({ user, syncStatus, stats, onDataChange, onLogout, onChange
                                                             })()}
                                                         </td>
                                                         <td style={{ padding: '0.75rem', fontSize: '0.875rem', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sign.notes || '-'}</td>
-                                                        <td style={{ padding: '0.75rem' }}>{sign.synced ? '✅' : '⏳'}</td>
                                                         <td style={{ padding: '0.75rem', textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                                                             <button className="btn btn-sm btn-primary" onClick={() => handleOpenDetails(sign)} title="Vedi Dettagli">👁️</button>
                                                             <button className="btn btn-sm" onClick={() => handleDeleteSign(sign.id)} style={{ background: 'var(--danger)', color: 'white' }} title="Elimina">🗑️</button>
