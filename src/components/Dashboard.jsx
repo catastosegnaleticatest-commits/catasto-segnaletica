@@ -313,8 +313,6 @@ function Dashboard({ signs, interventions }) {
         })
         .sort((a, b) => b.priorityScore - a.priorityScore);
 
-    // Segnali da sincronizzare
-    const unsyncedCount = signs.filter(s => !s.synced).length;
     const damagedCount = signs.filter(s => s.status === 'danneggiato').length;
     const pendingInterventions = interventions.filter(i => i.status === 'programmato' || i.status === 'in_corso').length;
 
@@ -456,11 +454,6 @@ function Dashboard({ signs, interventions }) {
                     <div className="bento-1">
                         <StatCard icon="⏳" value={expiredSigns.length} label="Scaduti usura" color="#ef4444"
                             sub={`oltre ${MAX_SIGN_LIFESPAN_YEARS} anni`} />
-                    </div>
-                )}
-                {unsyncedCount > 0 && (
-                    <div className="bento-1">
-                        <StatCard icon="🔄" value={unsyncedCount} label="Da sincronizzare" color="#6b7280" />
                     </div>
                 )}
             </div>
@@ -760,7 +753,6 @@ function Dashboard({ signs, interventions }) {
                                     <th style={{ padding: '0.5rem 0.75rem' }}>Tipo</th>
                                     <th style={{ padding: '0.5rem 0.75rem' }}>Posizione</th>
                                     <th style={{ padding: '0.5rem 0.75rem' }}>Note</th>
-                                    <th style={{ padding: '0.5rem 0.75rem' }}>Sync</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -772,7 +764,6 @@ function Dashboard({ signs, interventions }) {
                                             {parseFloat(s.latitude).toFixed(5)}, {parseFloat(s.longitude).toFixed(5)}
                                         </td>
                                         <td style={{ padding: '0.5rem 0.75rem', color: 'var(--gray-600)' }}>{s.notes || '-'}</td>
-                                        <td style={{ padding: '0.5rem 0.75rem' }}>{s.synced ? '✅' : '⏳'}</td>
                                     </tr>
                                 ))}
                             </tbody>
