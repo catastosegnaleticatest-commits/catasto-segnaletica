@@ -188,15 +188,8 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                             />
                         </LayersControl.BaseLayer>
 
-                        <LayersControl.BaseLayer name="📋 Catastale (ADE)">
-                            <TileLayer
-                                attribution='&copy; <a href="https://www.agenziaentrate.gov.it">Agenzia delle Entrate</a> &mdash; Cartografia Catastale'
-                                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                            />
-                        </LayersControl.BaseLayer>
-
-                        {/* Overlay catastale (WMS Agenzia Entrate) sovrapposto a qualsiasi layer base */}
-                        <LayersControl.Overlay name="🏠 Particelle Catastali (WMS)">
+                        {/* Overlay WMS ufficiale Agenzia delle Entrate — particelle con numero */}
+                        <LayersControl.Overlay checked name="📋 Particelle Catastali (ADE)">
                             <WMSTileLayer
                                 url="https://wms.cartografia.agenziaentrate.gov.it/inspire/wms/ows01.php"
                                 layers="CP.CadastralParcel"
@@ -204,7 +197,7 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                                 transparent={true}
                                 version="1.3.0"
                                 attribution='&copy; <a href="https://www.agenziaentrate.gov.it">Agenzia delle Entrate</a>'
-                                opacity={0.7}
+                                opacity={0.8}
                             />
                         </LayersControl.Overlay>
 
