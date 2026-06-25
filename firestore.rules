@@ -66,6 +66,13 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // Feedback utenti (CommandBar) — scrittura per tutti gli autenticati; lettura solo admin
+    match /feedbacks/{fid} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
     // Audit log — lettura per tutti gli autenticati; scrittura per tutti gli autenticati
     match /audit_log/{logId} {
       allow read: if isAuthenticated();

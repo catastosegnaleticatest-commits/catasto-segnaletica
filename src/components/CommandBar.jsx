@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { feedbacksService } from '../services/firestoreService';
+import { auth } from '../services/firebase';
 
 export default function CommandBar() {
     const [isOpen, setIsOpen] = useState(false);
@@ -31,12 +33,8 @@ export default function CommandBar() {
         if (!text) return;
         setFeedbackText('');
         setIsOpen(false);
-        // Salva feedback in localStorage per consultazione futura
-        try {
-            const feedbacks = JSON.parse(localStorage.getItem('feedbacks') || '[]');
-            feedbacks.push({ text, date: new Date().toISOString() });
-            localStorage.setItem('feedbacks', JSON.stringify(feedbacks.slice(-50)));
-        } catch { /* ignore */ }
+        const username = auth.currentUser?.email?.replace('@catasto.local', '') || 'anonimo';
+        feedbacksService.create(text, username).catch(() => {});
     };
 
     if (!isOpen) return null;

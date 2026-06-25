@@ -330,6 +330,21 @@ export const auditLogService = {
     },
 };
 
+// ─── Feedback utenti (CommandBar) ────────────────────────────────────────────
+export const feedbacksService = {
+    async getAll() {
+        const snap = await getDocs(query(collection(db, 'feedbacks'), orderBy('date', 'desc')));
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    },
+    async create(text, username) {
+        await addDoc(collection(db, 'feedbacks'), {
+            text,
+            username: username || 'anonimo',
+            date: new Date().toISOString(),
+        });
+    },
+};
+
 // ─── Stats ───────────────────────────────────────────────────────────────────
 export async function getStats() {
     const [signsSnap, interventionsSnap] = await Promise.all([
