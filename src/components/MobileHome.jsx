@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import localStorageService from '../services/localStorage';
+import { signsService } from '../services/firestoreService';
+import { stagingDB } from '../services/stagingDB';
 import MobileMapView from './MobileMapView';
 import MobileAddSign from './MobileAddSign';
 import MobileArchive from './MobileArchive';
@@ -39,49 +41,108 @@ function MobileHome({ user, syncStatus, stats, onDataChange }) {
         setCurrentView('details');
     };
 
+    // Esporta tutti i segnali Firestore + staging AR in un JSON condivisibile
     const handleExportJson = async () => {
         try {
-            const data = await localStorageService.exportAllForUsb();
-            const unsyncedCount = data.signs.filter(s => !s.synced).length;
-            if (unsyncedCount === 0) {
-                if (!confirm('Non ci sono segnali nuovi da esportare. Esportare comunque tutti i dati?')) return;
+            const [firestoreSigns, stagingRecords] = await Promise.all([
+                signsService.getAll(),
+                stagingDB.getAll(),
+            ]);
+            const data = {
+                exported_at: new Date().toISOString(),
+                signs: firestoreSigns,
+                ar_staging: stagingRecords,
+            };
+            if (firestoreSigns.length === 0 && stagingRecords.length === 0) {
+                alert('Nessun dato da esportare.');
+                return;
             }
             const json = JSON.stringify(data, null, 2);
             const fileName = `catasto_mobile_${new Date().toISOString().slice(0, 10)}.json`;
 
             if (Capacitor.isNativePlatform()) {
-                // APK: salva su cache del dispositivo poi condividi
                 await Filesystem.writeFile({
                     path: fileName,
                     data: json,
                     directory: Directory.Cache,
                     encoding: Encoding.UTF8,
                 });
-                const uriResult = await Filesystem.getUri({
-                    path: fileName,
-                    directory: Directory.Cache,
-                });
+                const uriResult = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
                 await Share.share({
                     title: 'Dati Catasto Mobile',
-                    text: `Export dati campo del ${new Date().toLocaleDateString('it-IT')} — ${data.signs.length} segnali`,
+                    text: `Export del ${new Date().toLocaleDateString('it-IT')} — ${firestoreSigns.length} segnali`,
                     url: uriResult.uri,
                     dialogTitle: 'Condividi o salva il file JSON',
                 });
             } else {
-                // Browser / PWA: download diretto
                 const blob = new Blob([json], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url;
-                a.download = fileName;
-                document.body.appendChild(a);
-                a.click();
+                a.href = url; a.download = fileName;
+                document.body.appendChild(a); a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                alert(`Esportati ${data.signs.length} segnali (${unsyncedCount} nuovi) e ${data.interventions.length} interventi.`);
+                alert(`Esportati ${firestoreSigns.length} segnali e ${stagingRecords.length} rilevamenti AR.`);
             }
         } catch (e) {
             alert('Errore durante l\'esportazione: ' + e.message);
+        }
+    };
+
+    // Carica su Firestore i dati locali rimasti (localStorage legacy + staging AR)
+    const [syncing, setSyncing] = useState(false);
+    const handleSyncToCloud = async () => {
+        setSyncing(true);
+        try {
+            const [localData, stagingRecords] = await Promise.all([
+                localStorageService.exportAllForUsb(),
+                stagingDB.getAll(),
+            ]);
+            const localSigns = (localData.signs || []).filter(s => !s.synced);
+            const total = localSigns.length + stagingRecords.length;
+            if (total === 0) { alert('Nessun dato locale da sincronizzare.'); return; }
+
+            let ok = 0, fail = 0;
+            for (const s of localSigns) {
+                try {
+                    await signsService.create({
+                        type: s.type || 'indicazione',
+                        latitude: s.latitude,
+                        longitude: s.longitude,
+                        status: s.status || 'buono',
+                        notes: s.notes || null,
+                        photo: s._photo || null,
+                        installation_date: s.installation_date || null,
+                        ordinanza_rif: s.ordinanza_rif || null,
+                        numero_autorizzazione: s.numero_autorizzazione || null,
+                        proprietario: s.proprietario || null,
+                    });
+                    ok++;
+                } catch { fail++; }
+            }
+            for (const r of stagingRecords) {
+                try {
+                    await signsService.create({
+                        type: r.sign_type || 'indicazione',
+                        latitude: r.position?.lat ?? 0,
+                        longitude: r.position?.lng ?? 0,
+                        status: 'buono',
+                        notes: `Rilevamento AR — confidenza ${Math.round((r.confidence || 0) * 100)}%`,
+                        photo: r.thumbnail || null,
+                    });
+                    ok++;
+                } catch { fail++; }
+            }
+            if (stagingRecords.length > 0 && fail === 0) await stagingDB.clear();
+            alert(fail === 0
+                ? `✅ ${ok} segnali sincronizzati! Sono ora visibili sull'app desktop.`
+                : `⚠️ ${ok} sincronizzati, ${fail} errori. Riprova.`
+            );
+            if (onDataChange) onDataChange();
+        } catch (e) {
+            alert('Errore sincronizzazione: ' + e.message);
+        } finally {
+            setSyncing(false);
         }
     };
 
@@ -321,7 +382,25 @@ function MobileHome({ user, syncStatus, stats, onDataChange }) {
                 </div>
             )}
 
-            {/* Export JSON (offline → desktop) */}
+            {/* Sincronizzazione Cloud (invia dati direttamente al desktop) */}
+            <button
+                onClick={handleSyncToCloud}
+                disabled={syncing}
+                className="btn"
+                style={{
+                    width: '100%',
+                    marginBottom: '0.5rem',
+                    background: syncing ? '#0f766e' : 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)',
+                    color: 'white',
+                    padding: '0.75rem',
+                    fontWeight: '700',
+                    fontSize: '1rem',
+                }}
+            >
+                {syncing ? '⏳ Sincronizzazione in corso...' : '☁️ Sincronizza su Cloud (Desktop)'}
+            </button>
+
+            {/* Export JSON backup */}
             <button
                 onClick={handleExportJson}
                 className="btn"
@@ -334,7 +413,7 @@ function MobileHome({ user, syncStatus, stats, onDataChange }) {
                     fontWeight: '600'
                 }}
             >
-                📦 Esporta Dati per Desktop (JSON)
+                📦 Esporta Backup JSON
             </button>
 
             {/* Menu Principale */}
@@ -445,8 +524,8 @@ function MobileHome({ user, syncStatus, stats, onDataChange }) {
                 </div>
                 <div style={{ fontSize: '0.875rem', opacity: 0.9 }}>
                     {syncStatus.online
-                        ? 'I dati vengono sincronizzati automaticamente'
-                        : 'I dati saranno sincronizzati quando il server sarà disponibile'}
+                        ? 'I nuovi rilevamenti sono visibili in tempo reale sul desktop'
+                        : 'Connettiti a internet per sincronizzare i dati con il desktop'}
                 </div>
             </div>
         </div>

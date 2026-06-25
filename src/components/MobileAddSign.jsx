@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import localStorageService from '../services/localStorage';
+import { signsService } from '../services/firestoreService';
 import { compressImage } from '../utils/imageCompression';
 import { classifySignPhoto } from '../utils/signClassifier';
 import { extractSignLabelData } from '../utils/signLabelOcr';
@@ -195,19 +195,18 @@ function MobileAddSign({ user, syncStatus, stats, onDataChange, onBack, censusSe
         setLoading(true);
 
         try {
-            const signId = await localStorageService.saveSign({
+            await signsService.create({
                 type: formData.type,
                 latitude: formData.latitude,
                 longitude: formData.longitude,
                 status: formData.status,
                 notes: formData.notes,
+                photo: formData.photo || null,
                 installation_date: formData.installation_date || new Date().toISOString().split('T')[0],
                 ordinanza_rif: formData.ordinanza_rif || null,
                 numero_autorizzazione: formData.type === 'passo_carrabile' ? (formData.numero_autorizzazione || null) : null,
-                proprietario: formData.type === 'passo_carrabile' ? (formData.proprietario || null) : null
+                proprietario: formData.type === 'passo_carrabile' ? (formData.proprietario || null) : null,
             });
-
-            await localStorageService.savePhoto(signId, formData.photo);
 
             setSuccess(true);
 

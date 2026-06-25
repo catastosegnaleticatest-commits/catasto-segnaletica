@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { stagingDB } from '../services/stagingDB';
+import { signsService } from '../services/firestoreService';
 
 // Mappa classi MobileNet → tipo segnale catasto
 const CLASS_TO_SIGN_TYPE = {
@@ -45,6 +46,8 @@ export default function ARScanView({ onBack }) {
     const [lastDetection, setLastDetection] = useState(null);
     const [detectionCount, setDetectionCount] = useState(0);
     const [exporting, setExporting] = useState(false);
+    const [publishing, setPublishing] = useState(false);
+    const [publishResult, setPublishResult] = useState(null);
     const [flashVisible, setFlashVisible] = useState(false);
 
     // Carica conteggio iniziale staging
@@ -270,6 +273,34 @@ export default function ARScanView({ onBack }) {
         setLastDetection(null);
     };
 
+    // Pubblica tutti i rilevamenti AR su Firestore → visibili subito sul desktop
+    const handlePublish = async () => {
+        const records = await stagingDB.getAll();
+        if (!records.length) { alert('Nessun rilevamento da pubblicare.'); return; }
+        if (!confirm(`Pubblicare ${records.length} rilevamenti sul Catasto?\nSaranno visibili immediatamente sull'app desktop.`)) return;
+        setPublishing(true);
+        setPublishResult(null);
+        let ok = 0, fail = 0;
+        for (const r of records) {
+            try {
+                await signsService.create({
+                    type: r.sign_type || 'indicazione',
+                    latitude: r.position?.lat ?? r.lat ?? 0,
+                    longitude: r.position?.lng ?? r.lng ?? 0,
+                    status: 'buono',
+                    notes: `Rilevamento AR automatico — confidenza ${Math.round((r.confidence || 0) * 100)}% — ${r.ai_class || ''}`.trim(),
+                    photo: r.thumbnail || null,
+                });
+                ok++;
+            } catch { fail++; }
+        }
+        if (ok > 0) await stagingDB.clear();
+        setDetectionCount(fail);
+        setLastDetection(null);
+        setPublishing(false);
+        setPublishResult({ ok, fail });
+    };
+
     return (
         <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 9999, display: 'flex', flexDirection: 'column' }}>
             {/* Flash detection */}
@@ -285,8 +316,24 @@ export default function ARScanView({ onBack }) {
                     <span style={{ background: '#1e293b', color: '#fbbf24', borderRadius: 12, padding: '0.2rem 0.5rem', fontSize: '0.75rem', fontWeight: 700 }}>
                         {detectionCount} rilevati
                     </span>
+                    {detectionCount > 0 && (
+                        <button
+                            onClick={handlePublish}
+                            disabled={publishing}
+                            style={{ background: publishing ? '#0f766e' : '#14b8a6', border: 'none', borderRadius: 6, color: 'white', padding: '0.3rem 0.6rem', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
+                        >
+                            {publishing ? '⏳ Invio...' : '☁️ Pubblica'}
+                        </button>
+                    )}
                 </div>
             </div>
+            {publishResult && (
+                <div style={{ background: publishResult.fail > 0 ? '#7f1d1d' : '#14532d', color: 'white', padding: '0.4rem 1rem', fontSize: '0.8rem', textAlign: 'center', flexShrink: 0 }}>
+                    {publishResult.fail === 0
+                        ? `✅ ${publishResult.ok} rilevamenti pubblicati sul Catasto!`
+                        : `⚠️ ${publishResult.ok} pubblicati, ${publishResult.fail} errori`}
+                </div>
+            )}
 
             {/* Camera + canvas */}
             <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
