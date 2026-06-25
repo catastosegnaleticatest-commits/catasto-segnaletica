@@ -3,6 +3,20 @@ import {
     query, where, orderBy, onSnapshot, serverTimestamp, writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { auth } from './firebase';
+
+// Helper audit log — fire-and-forget, non blocca mai l'operazione principale
+function _audit(operation, table, recordId, details = {}) {
+    const username = auth.currentUser?.email?.replace('@catasto.local', '') || 'sistema';
+    addDoc(collection(db, 'audit_log'), {
+        operation,
+        table_name: table,
+        record_id: String(recordId ?? ''),
+        details: JSON.stringify(details),
+        username,
+        timestamp: new Date().toISOString(),
+    }).catch(() => {});
+}
 
 // ─── Compressione foto ────────────────────────────────────────────────────────
 // Firestore: max 1 MB per documento. Comprimiamo a ~120 KB base64 max.
@@ -44,6 +58,7 @@ export const signsService = {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
         });
+        _audit('INSERT', 'signs', ref.id, { type: data.type, status: data.status });
         return { id: ref.id, ...data, photo };
     },
 
@@ -53,11 +68,13 @@ export const signsService = {
             update.photo = await compressPhoto(data.photo);
         }
         await updateDoc(doc(db, 'signs', id), update);
+        _audit('UPDATE', 'signs', id, { fields: Object.keys(data) });
         return { id, ...update };
     },
 
     async delete(id) {
         await deleteDoc(doc(db, 'signs', id));
+        _audit('DELETE', 'signs', id);
     },
 
     // Listener real-time (aggiorna la UI automaticamente)
@@ -123,17 +140,20 @@ export const interventionsService = {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
         });
+        _audit('INSERT', 'interventions', ref.id, { sign_id: data.sign_id, type: data.type });
         return { id: ref.id, ...data };
     },
 
     async update(id, data) {
         const update = { ...data, updated_at: new Date().toISOString() };
         await updateDoc(doc(db, 'interventions', id), update);
+        _audit('UPDATE', 'interventions', id, { status: data.status });
         return { id, ...update };
     },
 
     async delete(id) {
         await deleteDoc(doc(db, 'interventions', id));
+        _audit('DELETE', 'interventions', id);
     },
 
     subscribe(callback) {
@@ -157,17 +177,20 @@ export const roadMarkingsService = {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
         });
+        _audit('INSERT', 'road_markings', ref.id, { type: data.type });
         return { id: ref.id, ...data };
     },
 
     async update(id, data) {
         const update = { ...data, updated_at: new Date().toISOString() };
         await updateDoc(doc(db, 'road_markings', id), update);
+        _audit('UPDATE', 'road_markings', id, { status: data.status });
         return { id, ...update };
     },
 
     async delete(id) {
         await deleteDoc(doc(db, 'road_markings', id));
+        _audit('DELETE', 'road_markings', id);
     },
 };
 
@@ -184,17 +207,20 @@ export const trafficLightsService = {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
         });
+        _audit('INSERT', 'traffic_lights', ref.id, { location: data.location });
         return { id: ref.id, ...data };
     },
 
     async update(id, data) {
         const update = { ...data, updated_at: new Date().toISOString() };
         await updateDoc(doc(db, 'traffic_lights', id), update);
+        _audit('UPDATE', 'traffic_lights', id, { status: data.status });
         return { id, ...update };
     },
 
     async delete(id) {
         await deleteDoc(doc(db, 'traffic_lights', id));
+        _audit('DELETE', 'traffic_lights', id);
     },
 };
 
@@ -212,12 +238,14 @@ export const trafficLightInterventionsService = {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
         });
+        _audit('INSERT', 'traffic_light_interventions', ref.id, { traffic_light_id: data.traffic_light_id });
         return { id: ref.id, ...data };
     },
 
     async update(id, data) {
         const update = { ...data, updated_at: new Date().toISOString() };
         await updateDoc(doc(db, 'traffic_light_interventions', id), update);
+        _audit('UPDATE', 'traffic_light_interventions', id, { status: data.status });
         return { id, ...update };
     },
 };
@@ -233,19 +261,25 @@ export const pavementDefectsService = {
         const ref = await addDoc(collection(db, 'pavement_issues'), {
             ...data, photo, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
         });
+        _audit('INSERT', 'pavement_issues', ref.id, { type: data.type });
         return { id: ref.id, ...data, photo };
     },
     async update(id, data) {
         const update = { ...data, updated_at: new Date().toISOString() };
         await updateDoc(doc(db, 'pavement_issues', id), update);
+        _audit('UPDATE', 'pavement_issues', id, { status: data.status });
         return { id, ...update };
     },
-    async delete(id) { await deleteDoc(doc(db, 'pavement_issues', id)); },
+    async delete(id) {
+        await deleteDoc(doc(db, 'pavement_issues', id));
+        _audit('DELETE', 'pavement_issues', id);
+    },
     async forward(id) {
         const snap = await getDoc(doc(db, 'pavement_issues', id));
         const defect = { id: snap.id, ...snap.data() };
         const transmission = { forwarded_at: new Date().toISOString(), forwarded_to: 'Ufficio Tecnico' };
         await updateDoc(doc(db, 'pavement_issues', id), { status: 'preso_in_carico', ...transmission, updated_at: new Date().toISOString() });
+        _audit('UPDATE', 'pavement_issues', id, { status: 'preso_in_carico', forwarded_to: 'Ufficio Tecnico' });
         return { defect: { ...defect, ...transmission, status: 'preso_in_carico' }, transmission };
     },
 };
@@ -260,10 +294,12 @@ export const taxReportsService = {
         const ref = await addDoc(collection(db, 'tax_reports'), {
             ...data, status: 'aperta', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
         });
+        _audit('INSERT', 'tax_reports', ref.id, { address: data.address });
         return { id: ref.id, ...data };
     },
     async updateStatus(id, status) {
         await updateDoc(doc(db, 'tax_reports', id), { status, updated_at: new Date().toISOString() });
+        _audit('UPDATE', 'tax_reports', id, { status });
     },
 };
 
@@ -277,12 +313,17 @@ export const contractsService = {
         const ref = await addDoc(collection(db, 'contracts'), {
             ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
         });
+        _audit('INSERT', 'contracts', ref.id, { name: data.name });
         return { id: ref.id, ...data };
     },
     async update(id, data) {
         await updateDoc(doc(db, 'contracts', id), { ...data, updated_at: new Date().toISOString() });
+        _audit('UPDATE', 'contracts', id, { fields: Object.keys(data) });
     },
-    async delete(id) { await deleteDoc(doc(db, 'contracts', id)); },
+    async delete(id) {
+        await deleteDoc(doc(db, 'contracts', id));
+        _audit('DELETE', 'contracts', id);
+    },
 };
 
 // ─── Tariffario ──────────────────────────────────────────────────────────────
