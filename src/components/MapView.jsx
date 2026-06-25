@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, WMSTileLayer, LayersControl, Marker, Popup, useMap } from 'react-leaflet';
 import { useEffect, useState, useRef } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -129,7 +129,7 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                     )}
                 </div>
 
-                {/* Filtro tipo */}
+                {/* Filtro tipo segnale */}
                 <select
                     value={filterType}
                     onChange={e => setFilterType(e.target.value)}
@@ -140,7 +140,7 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                     ))}
                 </select>
 
-                {/* Filtro stato */}
+                {/* Filtro stato segnale */}
                 <select
                     value={filterStatus}
                     onChange={e => setFilterStatus(e.target.value)}
@@ -164,10 +164,52 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                     style={{ height: '100%', width: '100%' }}
                     scrollWheelZoom={true}
                 >
-                    <TileLayer
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
+                    {/* Selettore layer */}
+                    <LayersControl position="topright">
+
+                        <LayersControl.BaseLayer checked name="🗺️ Mappa Standard">
+                            <TileLayer
+                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            />
+                        </LayersControl.BaseLayer>
+
+                        <LayersControl.BaseLayer name="🛰️ Satellitare">
+                            <TileLayer
+                                attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+                                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                            />
+                        </LayersControl.BaseLayer>
+
+                        <LayersControl.BaseLayer name="🏔️ Topografica">
+                            <TileLayer
+                                attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>'
+                                url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+                            />
+                        </LayersControl.BaseLayer>
+
+                        <LayersControl.BaseLayer name="📋 Catastale (ADE)">
+                            <TileLayer
+                                attribution='&copy; <a href="https://www.agenziaentrate.gov.it">Agenzia delle Entrate</a> &mdash; Cartografia Catastale'
+                                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                            />
+                        </LayersControl.BaseLayer>
+
+                        {/* Overlay catastale (WMS Agenzia Entrate) sovrapposto a qualsiasi layer base */}
+                        <LayersControl.Overlay name="🏠 Particelle Catastali (WMS)">
+                            <WMSTileLayer
+                                url="https://wms.cartografia.agenziaentrate.gov.it/inspire/wms/ows01.php"
+                                layers="CP.CadastralParcel"
+                                format="image/png"
+                                transparent={true}
+                                version="1.3.0"
+                                attribution='&copy; <a href="https://www.agenziaentrate.gov.it">Agenzia delle Entrate</a>'
+                                opacity={0.7}
+                            />
+                        </LayersControl.Overlay>
+
+                    </LayersControl>
+
                     {filteredSigns.length > 0 && <MapBounds signs={filteredSigns} />}
                     {flyCoords && <FlyTo coords={flyCoords} />}
 
@@ -207,7 +249,7 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                 </MapContainer>
 
                 {/* Legenda */}
-                <div style={{ position: 'absolute', bottom: '20px', right: '20px', background: 'white', padding: '0.75rem 1rem', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', zIndex: 1000, fontSize: '0.875rem', color: '#111827' }}>
+                <div style={{ position: 'absolute', bottom: '20px', left: '20px', background: 'white', padding: '0.75rem 1rem', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', zIndex: 1000, fontSize: '0.875rem', color: '#111827' }}>
                     <div style={{ fontWeight: '700', marginBottom: '0.4rem', color: '#111827' }}>Stato Segnali</div>
                     {[
                         { color: '#10b981', label: 'Ottimo' },
