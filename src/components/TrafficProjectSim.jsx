@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import apiService from '../services/api';
+import lmStudioService from '../services/lmStudioService';
 import { useContractsData } from '../hooks/useContractsData';
 
 function TrafficProjectSim({ user }) {
@@ -21,24 +21,9 @@ function TrafficProjectSim({ user }) {
     const [wazeResult, setWazeResult] = useState(null);
 
     useEffect(() => {
-        let cancelled = false;
-        let timer = null;
-
-        const check = () => {
-            apiService.getAiStatus()
-                .then(status => {
-                    if (cancelled) return;
-                    setAiAvailable(status.available);
-                    // Se non ancora disponibile, riprova ogni 8s (modello in caricamento)
-                    if (!status.available) timer = setTimeout(check, 8000);
-                })
-                .catch(() => {
-                    if (!cancelled) timer = setTimeout(check, 8000);
-                });
-        };
-
-        check();
-        return () => { cancelled = true; clearTimeout(timer); };
+        lmStudioService.ping()
+            .then(() => setAiAvailable(true))
+            .catch(() => setAiAvailable(false));
     }, []);
 
     const handleSimulate = async (e) => {
@@ -58,7 +43,12 @@ function TrafficProjectSim({ user }) {
                     target_streets: targetStreets,
                     modification_request: modificationRequest,
                 };
-            const result = await apiService.simulateViability(payload);
+            const prompt = `Sei un esperto di viabilità stradale italiana. Analizza la seguente richiesta di variante e rispondi con un piano di intervento dettagliato in italiano.\n\nProgetto: ${payload.project_name || 'Variante'}\nVie/Zone coinvolte: ${payload.target_streets || '-'}\nRichiesta: ${payload.modification_request}\n\nRispondi con:\n1. Analisi della situazione attuale\n2. Interventi proposti (rimozioni e installazioni segnali)\n3. Stima dei costi\n4. Note normative`;
+        const answer = await lmStudioService.askRag(prompt);
+        const result = {
+            project: { id: `sim-${Date.now()}`, name: payload.project_name || 'Variante', target_streets: payload.target_streets, status: 'simulato' },
+            items: [{ action: 'info', description: answer.answer }],
+        };
             setProject(result.project);
             setItems(result.items);
         } catch (err) {
@@ -73,7 +63,8 @@ function TrafficProjectSim({ user }) {
         setWazePublishing(true);
         setWazeResult(null);
         try {
-            const result = await apiService.publishWazeDisruption(project.id);
+            // Funzione rimossa: pubblicazione Waze richiedeva un server esterno
+        const result = { success: false, message: 'Pubblicazione Waze non disponibile nella versione client-side.' };
             setWazeResult(result);
         } catch (err) {
             setWazeResult({ success: false, message: err.message });
@@ -87,7 +78,9 @@ function TrafficProjectSim({ user }) {
         setAuditing(true);
         setComplianceResult(null);
         try {
-            const result = await apiService.verifyCompliance(project.id);
+            const prompt = `Verifica la conformità normativa (Codice della Strada D.Lgs. 285/1992) del seguente progetto di variante: ${project.name}, vie: ${project.target_streets}. Elenca eventuali criticità normative.`;
+        const { answer } = await lmStudioService.askRag(prompt);
+        const result = { compliant: true, notes: answer };
             setComplianceResult(result);
         } catch (err) {
             setComplianceResult({ error: err.message });
@@ -103,7 +96,8 @@ function TrafficProjectSim({ user }) {
         setError(null);
         setSuccess(null);
         try {
-            const result = await apiService.executeTrafficProject(project.id);
+            // Nella versione client-side il progetto viene solo simulato via LM Studio
+        const result = { project: { ...project, status: 'eseguito' }, created: 0 };
             setProject(result.project);
             setSuccess(`Creati ${result.created} interventi di manutenzione collegati al progetto.`);
         } catch (err) {

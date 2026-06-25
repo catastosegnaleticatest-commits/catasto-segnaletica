@@ -65,6 +65,13 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // Audit log — lettura solo admin; scrittura per tutti gli autenticati
+    match /audit_log/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
     // Profili utente — lettura per l'utente stesso o admin; scrittura solo admin
     match /users/{userId} {
       allow read: if isAuthenticated();

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import apiService from '../services/api';
+import { auditLogService } from '../services/firestoreService';
 
 const OPERATION_LABELS = {
     insert: { label: 'Creazione', icon: '➕', badge: 'badge-success' },
@@ -40,7 +40,7 @@ function AuditLog({ user }) {
         setLoading(true);
         setError(null);
         try {
-            const data = await apiService.getAuditLog();
+            const data = await auditLogService.getAll();
             setLogs(data);
         } catch (err) {
             setError(err.message);

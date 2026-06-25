@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import apiService from '../services/api';
+import { pavementDefectsService } from '../services/firestoreService';
 import LocationPickerModal from './LocationPickerModal';
 
 const DEFECT_TYPE_LABELS = {
@@ -58,7 +58,7 @@ function PavementManager({ user }) {
     const loadDefects = async () => {
         setLoading(true);
         try {
-            const data = await apiService.getPavementDefects();
+            const data = await pavementDefectsService.getAll();
             setDefects(data);
             setError('');
         } catch (err) {
@@ -89,7 +89,7 @@ function PavementManager({ user }) {
     const handleCreate = async (e) => {
         e.preventDefault();
         try {
-            await apiService.createPavementDefect({
+            await pavementDefectsService.create({
                 ...formData,
                 latitude: parseFloat(formData.latitude),
                 longitude: parseFloat(formData.longitude),
@@ -107,15 +107,7 @@ function PavementManager({ user }) {
 
     const handleStatusChange = async (defect, newStatus) => {
         try {
-            await apiService.updatePavementDefect(defect.id, {
-                street_name: defect.street_name,
-                latitude: defect.latitude,
-                longitude: defect.longitude,
-                defect_type: defect.defect_type,
-                severity: defect.severity,
-                description: defect.description,
-                status: newStatus,
-            });
+            await pavementDefectsService.update(defect.id, { status: newStatus });
             await loadDefects();
         } catch (err) {
             alert('Errore aggiornamento stato: ' + err.message);
@@ -125,7 +117,7 @@ function PavementManager({ user }) {
     const handleDelete = async (defect) => {
         if (!window.confirm(`Eliminare definitivamente la segnalazione #${defect.id}?`)) return;
         try {
-            await apiService.deletePavementDefect(defect.id);
+            await pavementDefectsService.delete(defect.id);
             if (selectedId === defect.id) setSelectedId(null);
             await loadDefects();
         } catch (err) {
@@ -135,7 +127,7 @@ function PavementManager({ user }) {
 
     const handleForward = async (defect) => {
         try {
-            const { defect: updated, transmission } = await apiService.forwardPavementDefect(defect.id);
+            const { defect: updated, transmission } = await pavementDefectsService.forward(defect.id);
             generatePrintableReport(updated, transmission);
             await loadDefects();
         } catch (err) {
@@ -144,7 +136,7 @@ function PavementManager({ user }) {
     };
 
     const generatePrintableReport = (defect, transmission) => {
-        const photoUrl = defect.photo_path ? apiService.getPavementDefectPhotoUrl(defect.id) : null;
+        const photoUrl = defect.photo || null;
 
         const html = `
             <!DOCTYPE html>
@@ -404,7 +396,7 @@ function PavementManager({ user }) {
                             </a>
                         </p>
                         {selected.photo_path && (
-                            <img src={apiService.getPavementDefectPhotoUrl(selected.id)} alt={`Foto dissesto #${selected.id}`}
+                            <img src={selected.photo} alt={`Foto dissesto #${selected.id}`}
                                 style={{ maxWidth: '100%', maxHeight: '260px', objectFit: 'contain', border: '1px solid #d1d5db', borderRadius: '4px' }} />
                         )}
 

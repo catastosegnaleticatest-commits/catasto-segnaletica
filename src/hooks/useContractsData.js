@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import apiService from '../services/api';
+import { contractsService, priceListService, commitmentsService } from '../services/firestoreService';
 
-// Hook condiviso per caricare i dati di Accordi Quadro, Tariffario e Impegni di
-// Spesa, usati sia in ContractsTab che in InterventionsTab e nella Dashboard.
 export function useContractsData() {
     const [contracts, setContracts] = useState([]);
     const [priceList, setPriceList] = useState([]);
@@ -14,9 +12,9 @@ export function useContractsData() {
         setLoading(true);
         try {
             const [contractsData, priceData, commitmentsData] = await Promise.all([
-                apiService.getContracts(),
-                apiService.getPriceList(),
-                apiService.getCommitments(),
+                contractsService.getAll(),
+                priceListService.getAll(),
+                commitmentsService.getAll(),
             ]);
             setContracts(contractsData);
             setPriceList(priceData);
@@ -25,16 +23,13 @@ export function useContractsData() {
             return { contracts: contractsData, priceList: priceData, commitments: commitmentsData };
         } catch (err) {
             setError(err.message);
-            console.error('Errore caricamento dati appalti:', err);
             return null;
         } finally {
             setLoading(false);
         }
     }, []);
 
-    useEffect(() => {
-        reload();
-    }, [reload]);
+    useEffect(() => { reload(); }, [reload]);
 
     return { contracts, priceList, commitments, loading, error, reload };
 }

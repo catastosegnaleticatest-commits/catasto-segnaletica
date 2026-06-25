@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import localStorageService from '../services/localStorage';
-import apiService from '../services/api';
+import { taxReportsService } from '../services/firestoreService';
 
 const PROXIMITY_THRESHOLD_METERS = 30;
 
@@ -80,7 +80,7 @@ function MobilePassoCarrabileCheck({ onBack }) {
         if (!position) return;
         setSubmitting(true);
         try {
-            await apiService.createTaxReport({
+            await taxReportsService.create({
                 sign_id: nearbySign ? nearbySign.sign.id : null,
                 latitude: position.lat,
                 longitude: position.lon,

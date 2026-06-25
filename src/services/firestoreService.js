@@ -222,6 +222,114 @@ export const trafficLightInterventionsService = {
     },
 };
 
+// ─── Dissesti Stradali ───────────────────────────────────────────────────────
+export const pavementDefectsService = {
+    async getAll() {
+        const snap = await getDocs(query(collection(db, 'pavement_issues'), orderBy('created_at', 'desc')));
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    },
+    async create(data) {
+        const photo = data.photo ? await compressPhoto(data.photo) : null;
+        const ref = await addDoc(collection(db, 'pavement_issues'), {
+            ...data, photo, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        });
+        return { id: ref.id, ...data, photo };
+    },
+    async update(id, data) {
+        const update = { ...data, updated_at: new Date().toISOString() };
+        await updateDoc(doc(db, 'pavement_issues', id), update);
+        return { id, ...update };
+    },
+    async delete(id) { await deleteDoc(doc(db, 'pavement_issues', id)); },
+    async forward(id) {
+        const snap = await getDoc(doc(db, 'pavement_issues', id));
+        const defect = { id: snap.id, ...snap.data() };
+        const transmission = { forwarded_at: new Date().toISOString(), forwarded_to: 'Ufficio Tecnico' };
+        await updateDoc(doc(db, 'pavement_issues', id), { status: 'preso_in_carico', ...transmission, updated_at: new Date().toISOString() });
+        return { defect: { ...defect, ...transmission, status: 'preso_in_carico' }, transmission };
+    },
+};
+
+// ─── Segnalazioni Passi Carrai ────────────────────────────────────────────────
+export const taxReportsService = {
+    async getAll() {
+        const snap = await getDocs(query(collection(db, 'tax_reports'), orderBy('created_at', 'desc')));
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    },
+    async create(data) {
+        const ref = await addDoc(collection(db, 'tax_reports'), {
+            ...data, status: 'aperta', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        });
+        return { id: ref.id, ...data };
+    },
+    async updateStatus(id, status) {
+        await updateDoc(doc(db, 'tax_reports', id), { status, updated_at: new Date().toISOString() });
+    },
+};
+
+// ─── Accordi Quadro ──────────────────────────────────────────────────────────
+export const contractsService = {
+    async getAll() {
+        const snap = await getDocs(query(collection(db, 'contracts'), orderBy('created_at', 'desc')));
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    },
+    async create(data) {
+        const ref = await addDoc(collection(db, 'contracts'), {
+            ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        });
+        return { id: ref.id, ...data };
+    },
+    async update(id, data) {
+        await updateDoc(doc(db, 'contracts', id), { ...data, updated_at: new Date().toISOString() });
+    },
+    async delete(id) { await deleteDoc(doc(db, 'contracts', id)); },
+};
+
+// ─── Tariffario ──────────────────────────────────────────────────────────────
+export const priceListService = {
+    async getAll() {
+        const snap = await getDocs(query(collection(db, 'price_list'), orderBy('created_at', 'desc')));
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    },
+    async create(data) {
+        const ref = await addDoc(collection(db, 'price_list'), {
+            ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        });
+        return { id: ref.id, ...data };
+    },
+    async delete(id) { await deleteDoc(doc(db, 'price_list', id)); },
+};
+
+// ─── Impegni di Spesa ────────────────────────────────────────────────────────
+export const commitmentsService = {
+    async getAll() {
+        const snap = await getDocs(query(collection(db, 'commitments'), orderBy('created_at', 'desc')));
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    },
+    async create(data) {
+        const ref = await addDoc(collection(db, 'commitments'), {
+            ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        });
+        return { id: ref.id, ...data };
+    },
+    async delete(id) { await deleteDoc(doc(db, 'commitments', id)); },
+};
+
+// ─── Audit Log ───────────────────────────────────────────────────────────────
+export const auditLogService = {
+    async getAll() {
+        const snap = await getDocs(query(collection(db, 'audit_log'), orderBy('timestamp', 'desc')));
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    },
+    async log(operation, tableName, recordId, details, username) {
+        await addDoc(collection(db, 'audit_log'), {
+            operation, table_name: tableName, record_id: String(recordId),
+            details: JSON.stringify(details), username: username || 'sistema',
+            timestamp: new Date().toISOString(),
+        });
+    },
+};
+
 // ─── Stats ───────────────────────────────────────────────────────────────────
 export async function getStats() {
     const [signsSnap, interventionsSnap] = await Promise.all([

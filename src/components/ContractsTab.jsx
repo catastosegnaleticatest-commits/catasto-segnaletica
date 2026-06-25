@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import apiService from '../services/api';
+import { contractsService, priceListService, commitmentsService } from '../services/firestoreService';
 import { useContractsData } from '../hooks/useContractsData';
 
 function ContractsTab({ user }) {
@@ -19,7 +19,6 @@ function ContractsTab({ user }) {
     const [savingCommitment, setSavingCommitment] = useState(false);
 
     const [error, setError] = useState(null);
-    const [uploadingPdf, setUploadingPdf] = useState(false);
     const [editingImporti, setEditingImporti] = useState(false);
     const [importiForm, setImportiForm] = useState({ importo_netto: '', importo_lordo: '', aliquota_iva: '' });
 
@@ -29,67 +28,17 @@ function ContractsTab({ user }) {
         }
     }, [contracts, selectedContractId]);
 
-    const handlePdfUpload = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file || !selectedContractId) return;
-        e.target.value = '';
-        setUploadingPdf(true);
-        setError(null);
-        try {
-            const fd = new FormData();
-            fd.append('pdf', file);
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${apiService.getApiUrl()}/api/contracts/${selectedContractId}/upload-pdf`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
-                body: fd,
-            });
-            if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
-            const data = await res.json();
-            if (data.importo_netto || data.importo_lordo) {
-                alert(`PDF caricato. Importi estratti automaticamente:\n• Netto: ${data.importo_netto != null ? '€ ' + data.importo_netto.toFixed(2) : 'non trovato'}\n• Lordo: ${data.importo_lordo != null ? '€ ' + data.importo_lordo.toFixed(2) : 'non trovato'}\n\nVerifica e correggi se necessario.`);
-            } else {
-                alert('PDF caricato. Importi non rilevati automaticamente — inseriscili manualmente.');
-            }
-            await loadAll();
-        } catch (err) {
-            setError('Errore upload PDF: ' + err.message);
-        } finally {
-            setUploadingPdf(false);
-        }
-    };
-
     const handleSaveImporti = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${apiService.getApiUrl()}/api/contracts/${selectedContractId}/importi`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({
-                    importo_netto: importiForm.importo_netto !== '' ? parseFloat(importiForm.importo_netto) : null,
-                    importo_lordo: importiForm.importo_lordo !== '' ? parseFloat(importiForm.importo_lordo) : null,
-                    aliquota_iva: importiForm.aliquota_iva !== '' ? parseFloat(importiForm.aliquota_iva) : null,
-                }),
+            await contractsService.update(selectedContractId, {
+                importo_netto: importiForm.importo_netto !== '' ? parseFloat(importiForm.importo_netto) : null,
+                importo_lordo: importiForm.importo_lordo !== '' ? parseFloat(importiForm.importo_lordo) : null,
+                aliquota_iva: importiForm.aliquota_iva !== '' ? parseFloat(importiForm.aliquota_iva) : null,
             });
-            if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
             setEditingImporti(false);
             await loadAll();
         } catch (err) {
             setError('Errore salvataggio importi: ' + err.message);
-        }
-    };
-
-    const handleDeletePdf = async () => {
-        if (!confirm('Eliminare il PDF allegato?')) return;
-        try {
-            const token = localStorage.getItem('token');
-            await fetch(`${apiService.getApiUrl()}/api/contracts/${selectedContractId}/pdf`, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            await loadAll();
-        } catch (err) {
-            setError('Errore eliminazione PDF: ' + err.message);
         }
     };
 
@@ -99,7 +48,7 @@ function ContractsTab({ user }) {
         setSavingContract(true);
         setError(null);
         try {
-            const newContract = await apiService.createContract({
+            const newContract = await contractsService.create({
                 cig: contractForm.cig || null,
                 company: contractForm.company,
                 start_date: contractForm.start_date || null,
@@ -124,7 +73,7 @@ function ContractsTab({ user }) {
         setSavingPrice(true);
         setError(null);
         try {
-            await apiService.createPriceListItem({
+            await priceListService.create({
                 contract_id: selectedContractId,
                 item_code: priceForm.item_code || null,
                 description: priceForm.description,
@@ -147,7 +96,7 @@ function ContractsTab({ user }) {
         setSavingCommitment(true);
         setError(null);
         try {
-            await apiService.createCommitment({
+            await commitmentsService.create({
                 contract_id: selectedContractId,
                 resolution_number: commitmentForm.resolution_number || null,
                 allocated_amount: parseFloat(commitmentForm.allocated_amount),
@@ -286,37 +235,10 @@ function ContractsTab({ user }) {
                         </div>
                     </div>
 
-                    {/* PDF e Importi Accordo */}
+                    {/* Importi Accordo */}
                     <div className="card">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-                            <h3 className="card-title" style={{ margin: 0 }}>📄 Documento e Importi</h3>
-                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                                {selectedContract.pdf_filename && (
-                                    <>
-                                        <a
-                                            href={`${apiService.getApiUrl()}/api/contracts/${selectedContract.id}/pdf`}
-                                            target="_blank" rel="noreferrer"
-                                            className="btn btn-secondary"
-                                            style={{ fontSize: '0.875rem', padding: '0.4rem 0.9rem' }}
-                                        >
-                                            📥 Visualizza PDF
-                                        </a>
-                                        <button
-                                            className="btn"
-                                            onClick={handleDeletePdf}
-                                            style={{ fontSize: '0.875rem', padding: '0.4rem 0.9rem', background: 'var(--danger)', color: 'white' }}
-                                        >
-                                            🗑️ Rimuovi PDF
-                                        </button>
-                                    </>
-                                )}
-                                <label style={{ cursor: uploadingPdf ? 'wait' : 'pointer' }}>
-                                    <input type="file" accept=".pdf,application/pdf" style={{ display: 'none' }} onChange={handlePdfUpload} disabled={uploadingPdf} />
-                                    <span className="btn btn-primary" style={{ fontSize: '0.875rem', padding: '0.4rem 0.9rem', pointerEvents: 'none' }}>
-                                        {uploadingPdf ? '⏳ Analisi AI...' : selectedContract.pdf_filename ? '🔄 Sostituisci PDF' : '📎 Allega PDF'}
-                                    </span>
-                                </label>
-                            </div>
+                            <h3 className="card-title" style={{ margin: 0 }}>💶 Importi Accordo</h3>
                         </div>
 
                         {/* Importi estratti */}

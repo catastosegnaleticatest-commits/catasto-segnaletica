@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getSignAgeYears, isSignExpired, MAX_SIGN_LIFESPAN_YEARS } from '../utils/signLifespan';
 import { useContractsData } from '../hooks/useContractsData';
-import apiService from '../services/api';
+import { pavementDefectsService } from '../services/firestoreService';
 import { getPriorityMultiplier } from '../utils/geo';
 
 const DEFECT_BASE_SEVERITY = { bassa: 1, media: 1.5, alta_emergenza: 3 };
@@ -177,7 +177,7 @@ function Dashboard({ signs, interventions }) {
     // === Dissesti Stradali (Buche) ===
     const [pavementDefects, setPavementDefects] = useState([]);
     useEffect(() => {
-        apiService.getPavementDefects()
+        pavementDefectsService.getAll()
             .then(setPavementDefects)
             .catch(err => console.error('Errore caricamento dissesti:', err));
     }, []);
@@ -185,21 +185,27 @@ function Dashboard({ signs, interventions }) {
         d => d.severity === 'alta_emergenza' && d.status !== 'ripristinato'
     );
 
-    // === Zone Sensibili (geofencing per coda priorità spaziale) ===
-    const [sensitiveZones, setSensitiveZones] = useState([]);
-    useEffect(() => {
-        apiService.getSensitiveZones()
-            .then(setSensitiveZones)
-            .catch(err => console.error('Errore caricamento zone sensibili:', err));
-    }, []);
+    // Zone sensibili: lista statica (non più dal server)
+    const sensitiveZones = [];
 
-    // === Matrice Priorità Interventi ===
-    const [priorityMatrix, setPriorityMatrix] = useState([]);
-    useEffect(() => {
-        apiService.getPriorityMatrix()
-            .then(setPriorityMatrix)
-            .catch(() => setPriorityMatrix([]));
-    }, [interventions]);
+    // === Matrice Priorità Interventi (calcolata client-side) ===
+    const priorityMatrix = interventions
+        .filter(i => i.status === 'programmato' || i.status === 'in_corso')
+        .map(i => {
+            const sign = signs.find(s => s.id === i.sign_id || s.id === parseInt(i.sign_id));
+            const SIGN_WEIGHTS = { divieto: 5, obbligo: 4, pericolo: 4, indicazione: 2, precedenza: 3 };
+            const DEFECT_WEIGHTS = { da_sostituire: 3, danneggiato: 2, rimosso: 1, buono: 0 };
+            const signWeight = SIGN_WEIGHTS[sign?.type] ?? 2;
+            const defectWeight = DEFECT_WEIGHTS[sign?.status] ?? 1;
+            return {
+                ...i,
+                sign_type: sign?.type ?? '-',
+                street_name: sign?.notes ?? '-',
+                priorityScore: (signWeight * defectWeight) + (sign ? 1 : 0),
+            };
+        })
+        .sort((a, b) => b.priorityScore - a.priorityScore)
+        .slice(0, 20);
 
     const withPriority = (lat, lng, baseScore) => {
         const { multiplier, zone } = getPriorityMultiplier(parseFloat(lat), parseFloat(lng), sensitiveZones);

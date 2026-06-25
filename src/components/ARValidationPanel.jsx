@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import apiService from '../services/api';
+import { signsService } from '../services/firestoreService';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -146,7 +146,7 @@ export default function ARValidationPanel({ user }) {
         try {
             const finalLat = rectifyPos?.lat ?? rec.sign_lat;
             const finalLng = rectifyPos?.lng ?? rec.sign_lng;
-            await apiService.createSign({
+            await signsService.create({
                 type: editForm.type || rec.sign_type || 'indicazione',
                 latitude: finalLat,
                 longitude: finalLng,

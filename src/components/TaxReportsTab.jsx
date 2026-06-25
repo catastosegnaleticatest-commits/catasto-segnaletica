@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import apiService from '../services/api';
+import { taxReportsService } from '../services/firestoreService';
 
 const MOTIVO_LABELS = {
     non_censito: { label: 'Non censito', badge: 'badge-danger', icon: '🚫' },
@@ -27,7 +27,7 @@ function TaxReportsTab({ user }) {
         setLoading(true);
         setError(null);
         try {
-            const data = await apiService.getTaxReports();
+            const data = await taxReportsService.getAll();
             setReports(data);
         } catch (err) {
             setError(err.message);
@@ -39,7 +39,7 @@ function TaxReportsTab({ user }) {
     const handleStatusChange = async (id, newStatus) => {
         setUpdating(id);
         try {
-            await apiService.updateTaxReportStatus(id, newStatus);
+            await taxReportsService.updateStatus(id, newStatus);
             await loadReports();
         } catch (err) {
             alert('Errore aggiornamento: ' + err.message);
