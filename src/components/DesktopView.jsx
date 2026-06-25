@@ -394,6 +394,8 @@ function DesktopView({ user, syncStatus, stats, onDataChange, onLogout, onChange
     const [archiveStatusFilter, setArchiveStatusFilter] = useState('tutti');
     const [archiveSearch, setArchiveSearch] = useState('');
     const [archiveExpiredOnly, setArchiveExpiredOnly] = useState(false);
+    const [archivePage, setArchivePage] = useState(1);
+    const ARCHIVE_PAGE_SIZE = 10;
     const [selectedSignIds, setSelectedSignIds] = useState([]);
     const [prefillInterventionSignId, setPrefillInterventionSignId] = useState(null);
     const [showEmptyHint, setShowEmptyHint] = useState(true);
@@ -924,22 +926,22 @@ function DesktopView({ user, syncStatus, stats, onDataChange, onLogout, onChange
                             </h3>
                         </div>
                         <div className="toolbar">
-                            <select className="form-select" value={archiveTypeFilter} onChange={e => setArchiveTypeFilter(e.target.value)}>
+                            <select className="form-select" value={archiveTypeFilter} onChange={e => { setArchiveTypeFilter(e.target.value); setArchivePage(1); }}>
                                 <option value="tutti">Tutte le tipologie</option>
                                 {SIGN_TYPES.map(t => <option key={t} value={t}>{getSignIcon(t)} {t}</option>)}
                             </select>
-                            <select className="form-select" value={archiveStatusFilter} onChange={e => setArchiveStatusFilter(e.target.value)}>
+                            <select className="form-select" value={archiveStatusFilter} onChange={e => { setArchiveStatusFilter(e.target.value); setArchivePage(1); }}>
                                 <option value="tutti">Tutti gli stati</option>
                                 {SIGN_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                             <input
                                 type="text" className="form-input"
-                                value={archiveSearch} onChange={e => setArchiveSearch(e.target.value)}
+                                value={archiveSearch} onChange={e => { setArchiveSearch(e.target.value); setArchivePage(1); }}
                                 placeholder="🔎 Cerca per via, toponimo o note..."
                                 style={{ flex: '1 1 240px', minWidth: '200px' }}
                             />
                             <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.875rem', color: '#ef4444', fontWeight: 600, cursor: 'pointer' }}>
-                                <input type="checkbox" checked={archiveExpiredOnly} onChange={e => setArchiveExpiredOnly(e.target.checked)} />
+                                <input type="checkbox" checked={archiveExpiredOnly} onChange={e => { setArchiveExpiredOnly(e.target.checked); setArchivePage(1); }} />
                                 ⚠️ Solo scaduti (&gt;{MAX_SIGN_LIFESPAN_YEARS}aa)
                             </label>
                         </div>
@@ -964,7 +966,7 @@ function DesktopView({ user, syncStatus, stats, onDataChange, onLogout, onChange
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {filteredSigns.map((sign) => {
+                                        {filteredSigns.slice((archivePage - 1) * ARCHIVE_PAGE_SIZE, archivePage * ARCHIVE_PAGE_SIZE).map((sign) => {
                                             if (!sign || !sign.id) return null;
                                             try {
                                                 return (
@@ -1008,6 +1010,59 @@ function DesktopView({ user, syncStatus, stats, onDataChange, onLogout, onChange
                                         })}
                                     </tbody>
                                 </table>
+                                {/* Paginazione */}
+                                {filteredSigns.length > ARCHIVE_PAGE_SIZE && (() => {
+                                    const totalPages = Math.ceil(filteredSigns.length / ARCHIVE_PAGE_SIZE);
+                                    return (
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '1rem', borderTop: '1px solid var(--gray-200)' }}>
+                                            <button
+                                                className="btn btn-sm btn-secondary"
+                                                onClick={() => setArchivePage(1)}
+                                                disabled={archivePage === 1}
+                                            >««</button>
+                                            <button
+                                                className="btn btn-sm btn-secondary"
+                                                onClick={() => setArchivePage(p => Math.max(1, p - 1))}
+                                                disabled={archivePage === 1}
+                                            >‹ Prec</button>
+                                            {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                                .filter(p => p === 1 || p === totalPages || Math.abs(p - archivePage) <= 2)
+                                                .reduce((acc, p, idx, arr) => {
+                                                    if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                                                    acc.push(p);
+                                                    return acc;
+                                                }, [])
+                                                .map((item, idx) => item === '...'
+                                                    ? <span key={`ellipsis-${idx}`} style={{ padding: '0 0.25rem', color: 'var(--gray-500)' }}>…</span>
+                                                    : <button
+                                                        key={item}
+                                                        className="btn btn-sm"
+                                                        onClick={() => setArchivePage(item)}
+                                                        style={{
+                                                            background: archivePage === item ? 'var(--primary)' : 'var(--gray-100)',
+                                                            color: archivePage === item ? 'white' : 'var(--gray-700)',
+                                                            fontWeight: archivePage === item ? 700 : 400,
+                                                            minWidth: '2rem',
+                                                        }}
+                                                    >{item}</button>
+                                                )
+                                            }
+                                            <button
+                                                className="btn btn-sm btn-secondary"
+                                                onClick={() => setArchivePage(p => Math.min(totalPages, p + 1))}
+                                                disabled={archivePage === totalPages}
+                                            >Succ ›</button>
+                                            <button
+                                                className="btn btn-sm btn-secondary"
+                                                onClick={() => setArchivePage(totalPages)}
+                                                disabled={archivePage === totalPages}
+                                            >»»</button>
+                                            <span style={{ fontSize: '0.8rem', color: 'var(--gray-500)', marginLeft: '0.5rem' }}>
+                                                {(archivePage - 1) * ARCHIVE_PAGE_SIZE + 1}–{Math.min(archivePage * ARCHIVE_PAGE_SIZE, filteredSigns.length)} di {filteredSigns.length}
+                                            </span>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         ) : (
                             <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--gray-500)' }}>
