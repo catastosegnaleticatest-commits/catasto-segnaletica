@@ -7,9 +7,11 @@ import {
     reauthenticateWithCredential,
     EmailAuthProvider,
     onAuthStateChanged,
+    getAuth,
 } from 'firebase/auth';
+import { initializeApp, deleteApp } from 'firebase/app';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { auth, db, firebaseConfig } from './firebase';
 
 // Converti username in email sintetica per Firebase Auth
 const toEmail = (username) => `${username.toLowerCase().trim()}@catasto.local`;
@@ -28,18 +30,25 @@ export const authService = {
         await signOut(auth);
     },
 
-    // Crea utente (solo admin)
+    // Crea utente (solo admin) — usa app secondaria per non fare logout dell'admin corrente
     async createUser(username, password, role) {
         const email = toEmail(username);
-        const cred  = await createUserWithEmailAndPassword(auth, email, password);
-        await setDoc(doc(db, 'users', cred.user.uid), {
-            username,
-            role,
-            email,
-            requiresPasswordChange: true,
-            createdAt: new Date().toISOString(),
-        });
-        return cred.user.uid;
+        const secondaryApp = initializeApp(firebaseConfig, `secondary-${Date.now()}`);
+        const secondaryAuth = getAuth(secondaryApp);
+        try {
+            const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+            await setDoc(doc(db, 'users', cred.user.uid), {
+                username,
+                role,
+                email,
+                requiresPasswordChange: true,
+                createdAt: new Date().toISOString(),
+            });
+            await signOut(secondaryAuth);
+            return cred.user.uid;
+        } finally {
+            await deleteApp(secondaryApp);
+        }
     },
 
     // Cambio password (utente corrente)

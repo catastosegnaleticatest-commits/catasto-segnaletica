@@ -201,7 +201,7 @@ function MobilePassoCarrabileCheck({ onBack }) {
                                         : '⚠️ Passo carrabile non censito nel catasto'}
                                 </div>
                                 <div style={{ fontSize: '0.875rem', marginBottom: '0.75rem' }}>
-                                    Verrà generata una segnalazione per l'Ufficio Tributi del Comune per l'accertamento dell'evasione fiscale.
+                                    Verrà generata una segnalazione per l'Passi Carrai e Segnalazioni del Comune per l'accertamento dell'evasione fiscale.
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Note (opzionale)</label>
@@ -220,14 +220,14 @@ function MobilePassoCarrabileCheck({ onBack }) {
                                     disabled={submitting}
                                     style={{ width: '100%', background: '#dc2626', borderColor: '#dc2626' }}
                                 >
-                                    {submitting ? '📨 Invio in corso...' : '📨 Invia segnalazione Ufficio Tributi'}
+                                    {submitting ? '📨 Invio in corso...' : '📨 Invia segnalazione Passi Carrai e Segnalazioni'}
                                 </button>
                             </div>
                         )}
 
                         {submitted && (
                             <div style={{ padding: '1rem', background: '#dcfce7', color: '#166534', borderRadius: 'var(--border-radius-sm)', fontWeight: '700', textAlign: 'center' }}>
-                                ✅ Segnalazione inviata all'Ufficio Tributi
+                                ✅ Segnalazione inviata all'Passi Carrai e Segnalazioni
                             </div>
                         )}
 

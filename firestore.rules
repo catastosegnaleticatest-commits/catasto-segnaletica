@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Funzioni helper
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Segnali stradali — lettura e scrittura per tutti gli utenti autenticati
+    match /signs/{signId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Interventi — lettura e scrittura per tutti gli utenti autenticati
+    match /interventions/{interventionId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Impianti semaforici — lettura e scrittura per tutti gli utenti autenticati
+    match /traffic_lights/{tlId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Interventi semaforici — lettura e scrittura per tutti gli utenti autenticati
+    match /traffic_light_interventions/{tliId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Segnaletica orizzontale — lettura e scrittura per tutti gli utenti autenticati
+    match /road_markings/{rmId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Dissesti stradali — lettura e scrittura per tutti gli utenti autenticati
+    match /pavement_issues/{pid} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Segnalazioni passi carrai — lettura e scrittura per tutti gli utenti autenticati
+    match /tax_reports/{rid} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Progetti traffico — lettura e scrittura per tutti gli utenti autenticati
+    match /traffic_projects/{pid} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Appalti e contratti — lettura e scrittura per tutti gli utenti autenticati
+    match /contracts/{cid} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /price_list/{pid} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /commitments/{cid} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Profili utente — lettura per l'utente stesso o admin; scrittura solo admin
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() &&
+        (request.auth.uid == userId || isAdmin());
+    }
+
+  }
+}

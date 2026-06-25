@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import localStorageService from '../services/localStorage';
+import { signsService, interventionsService } from '../services/firestoreService';
 import { useContractsData } from '../hooks/useContractsData';
 import DesktopSignDetails from './DesktopSignDetails';
 import Dashboard from './Dashboard';
@@ -91,8 +92,8 @@ function InterventionsTab({ interventions, signs, user, onDataChange, prefillSig
         if (!form.quantity || parseFloat(form.quantity) <= 0) { alert('Inserire una quantità maggiore di zero'); return; }
         setSaving(true);
         try {
-            await localStorageService.saveIntervention({
-                sign_id: parseInt(form.sign_id),
+            await interventionsService.create({
+                sign_id: String(form.sign_id),
                 type: form.type,
                 scheduled_date: form.scheduled_date,
                 completed_date: null,
@@ -114,7 +115,7 @@ function InterventionsTab({ interventions, signs, user, onDataChange, prefillSig
 
     const handleStatusChange = async (intervention, newStatus) => {
         try {
-            await localStorageService.updateIntervention(intervention.id, {
+            await interventionsService.update(intervention.id, {
                 ...intervention,
                 status: newStatus,
                 completed_date: newStatus === 'completato' ? new Date().toISOString().split('T')[0] : intervention.completed_date
@@ -128,7 +129,7 @@ function InterventionsTab({ interventions, signs, user, onDataChange, prefillSig
     const handleDelete = async (id) => {
         if (!confirm('Eliminare questo intervento?')) return;
         try {
-            await localStorageService.deleteIntervention(id);
+            await interventionsService.delete(id);
             onDataChange();
         } catch (err) {
             alert('Errore eliminazione: ' + err.message);
@@ -419,8 +420,10 @@ function DesktopView({ user, syncStatus, stats, onDataChange, onLogout, onChange
     const loadData = async () => {
         setLoading(true);
         try {
-            const signsData = await localStorageService.getSigns();
-            const interventionsData = await localStorageService.getInterventions();
+            const [signsData, interventionsData] = await Promise.all([
+                signsService.getAll(),
+                interventionsService.getAll(),
+            ]);
             setSigns(signsData);
             setInterventions(interventionsData);
         } catch (error) {
@@ -434,7 +437,7 @@ function DesktopView({ user, syncStatus, stats, onDataChange, onLogout, onChange
         if (!confirm('Sei sicuro di voler eliminare questo segnale?')) return;
 
         try {
-            await localStorageService.deleteSign(signId);
+            await signsService.delete(signId);
             alert('Segnale eliminato con successo!');
             loadData();
             if (onDataChange) onDataChange();
@@ -751,7 +754,7 @@ function DesktopView({ user, syncStatus, stats, onDataChange, onLogout, onChange
                     {(user?.role === 'admin' || user?.role === 'tecnico') && (<>
                         <NavSection label="Amministrazione" />
                         <NavItem id="contracts" icon="📑" label="Appalti e Bilancio" />
-                        <NavItem id="tax-reports" icon="🏛️" label="Ufficio Tributi" />
+                        <NavItem id="tax-reports" icon="🏛️" label="Passi Carrai e Segnalazioni" />
                         {user?.role === 'admin' && <NavItem id="users" icon="👥" label="Gestione Utenti" />}
                         {user?.role === 'admin' && <NavItem id="audit" icon="📜" label="Registro Attività" />}
                     </>)}

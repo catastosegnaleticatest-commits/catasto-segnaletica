@@ -55,7 +55,7 @@ function TaxReportsTab({ user }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                     <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.25rem' }}>
-                        🏛️ Segnalazioni Ufficio Tributi
+                        🏛️ Passi Carrai e Segnalazioni
                     </h2>
                     <p style={{ color: 'var(--gray-600)', fontSize: '0.875rem' }}>
                         Passi carrabili non censiti o con numero di autorizzazione non corrispondente, rilevati dalle pattuglie
