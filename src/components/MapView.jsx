@@ -1,5 +1,5 @@
 import { MapContainer, TileLayer, WMSTileLayer, LayersControl, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -12,8 +12,10 @@ L.Icon.Default.mergeOptions({
 
 function MapBounds({ signs }) {
     const map = useMap();
+    const fittedRef = useRef(false);
     useEffect(() => {
-        if (signs && signs.length > 0) {
+        if (signs && signs.length > 0 && !fittedRef.current) {
+            fittedRef.current = true;
             const bounds = L.latLngBounds(signs.map(s => [s.latitude, s.longitude]));
             map.fitBounds(bounds, { padding: [50, 50] });
         }
@@ -41,7 +43,7 @@ function CadastralZoomWarning({ onZoomChange, onOverlayChange }) {
 
 function MapView({ signs, onSignClick, onOpenDetails }) {
     const [filterType, setFilterType] = useState('tutti');
-    const [filterStatus, setFilterStatus] = useState('tutti');
+    const [filterStatuses, setFilterStatuses] = useState(new Set());
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [flyCoords, setFlyCoords] = useState(null);
@@ -57,9 +59,17 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
     const signTypes = ['tutti', 'divieto', 'obbligo', 'pericolo', 'indicazione', 'precedenza'];
     const signStatuses = ['tutti', 'ottimo', 'buono', 'discreto', 'danneggiato'];
 
+    const toggleStatus = useCallback((status) => {
+        setFilterStatuses(prev => {
+            const next = new Set(prev);
+            if (next.has(status)) next.delete(status); else next.add(status);
+            return next;
+        });
+    }, []);
+
     const filteredSigns = (signs || []).filter(s => {
         if (filterType !== 'tutti' && s.type !== filterType) return false;
-        if (filterStatus !== 'tutti' && s.status !== filterStatus) return false;
+        if (filterStatuses.size > 0 && !filterStatuses.has(s.status)) return false;
         return true;
     });
 
@@ -153,16 +163,43 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                     ))}
                 </select>
 
-                {/* Filtro stato segnale */}
-                <select
-                    value={filterStatus}
-                    onChange={e => setFilterStatus(e.target.value)}
-                    style={{ padding: '0.4rem 0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem', color: '#111827', background: 'white' }}
-                >
-                    {signStatuses.map(s => (
-                        <option key={s} value={s}>{s === 'tutti' ? 'Tutti gli stati' : s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                    ))}
-                </select>
+                {/* Filtro stato — toggle dinamico multi-selezione */}
+                <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {[
+                        { key: 'ottimo',     label: 'Ottimo',     color: '#10b981' },
+                        { key: 'buono',      label: 'Buono',      color: '#3b82f6' },
+                        { key: 'discreto',   label: 'Discreto',   color: '#f59e0b' },
+                        { key: 'danneggiato',label: 'Danneggiato',color: '#ef4444' },
+                    ].map(({ key, label, color }) => {
+                        const active = filterStatuses.has(key);
+                        return (
+                            <button
+                                key={key}
+                                onClick={() => toggleStatus(key)}
+                                style={{
+                                    padding: '0.25rem 0.65rem',
+                                    borderRadius: '999px',
+                                    border: `2px solid ${color}`,
+                                    background: active ? color : 'white',
+                                    color: active ? 'white' : color,
+                                    fontSize: '0.78rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                {label}
+                            </button>
+                        );
+                    })}
+                    {filterStatuses.size > 0 && (
+                        <button
+                            onClick={() => setFilterStatuses(new Set())}
+                            style={{ padding: '0.25rem 0.5rem', borderRadius: '999px', border: '1px solid #cbd5e1', background: 'white', color: '#6b7280', fontSize: '0.75rem', cursor: 'pointer' }}
+                        >✕ tutti</button>
+                    )}
+                </div>
 
                 <span style={{ fontSize: '0.8rem', color: '#6b7280', whiteSpace: 'nowrap' }}>
                     {filteredSigns.length} segnali
@@ -235,7 +272,7 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                         </div>
                     )}
 
-                    {filteredSigns.length > 0 && <MapBounds signs={filteredSigns} />}
+                    {signs && signs.length > 0 && <MapBounds signs={signs} />}
                     {flyCoords && <FlyTo coords={flyCoords} />}
 
                     {filteredSigns.map((sign) => (

@@ -176,6 +176,7 @@ function VirtualCensusTab() {
     const [searchedVia, setSearchedVia] = useState('');
     const [importingId, setImportingId] = useState(null);
     const [importedIds, setImportedIds] = useState(new Set());
+    const [bulkImporting, setBulkImporting] = useState(false);
 
     const [mapillaryToken, setMapillaryToken] = useState(getMapillaryToken);
     const [tokenInput, setTokenInput] = useState('');
@@ -288,6 +289,31 @@ function VirtualCensusTab() {
         }
     };
 
+    const handleBulkImport = async () => {
+        const pending = results.filter(r => !importedIds.has(r.id));
+        if (!pending.length) return;
+        if (!confirm(`Importare tutti i ${pending.length} segnali nel Catasto?`)) return;
+        setBulkImporting(true);
+        let ok = 0;
+        for (const r of pending) {
+            try {
+                const { type } = classifyOsmSign(r.tags);
+                await signsService.create({
+                    type,
+                    latitude: r.lat,
+                    longitude: r.lon,
+                    status: 'buono',
+                    notes: `Importato da Censimento Virtuale - ${searchedVia || via}`,
+                });
+                setImportedIds(prev => new Set(prev).add(r.id));
+                ok++;
+            } catch { /* continua con i successivi */ }
+        }
+        setBulkImporting(false);
+        window.dispatchEvent(new CustomEvent('catasto:signs-updated'));
+        alert(`✅ Importati ${ok} segnali su ${pending.length}.`);
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
@@ -377,8 +403,18 @@ function VirtualCensusTab() {
                 )}
 
                 {center && (
-                    <div style={{ fontSize: '0.8rem', color: 'var(--gray-600)', marginTop: '0.25rem' }}>
-                        📍 <strong>{searchedVia}</strong> — <strong>{results.length}</strong> segnale/i nel raggio di {radius}m
+                    <div style={{ fontSize: '0.8rem', color: 'var(--gray-600)', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                        <span>📍 <strong>{searchedVia}</strong> — <strong>{results.length}</strong> segnale/i trovati, <strong>{results.length - importedIds.size}</strong> da importare</span>
+                        {results.length > 0 && results.some(r => !importedIds.has(r.id)) && (
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleBulkImport}
+                                disabled={bulkImporting}
+                                style={{ fontSize: '0.8rem', padding: '0.25rem 0.75rem', whiteSpace: 'nowrap' }}
+                            >
+                                {bulkImporting ? '⏳ Importazione in corso...' : `⬇️ Importa tutti (${results.filter(r => !importedIds.has(r.id)).length})`}
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
@@ -431,21 +467,25 @@ function VirtualCensusTab() {
 
                     {/* Card — colonna destra, scrollabile indipendentemente */}
                     <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingRight: '0.25rem' }}>
-                        {results.length > 0 ? (
-                            results.map(r => (
+                        {results.filter(r => !importedIds.has(r.id)).length > 0 ? (
+                            results.filter(r => !importedIds.has(r.id)).map(r => (
                                 <VirtualSignCard
                                     key={r.id}
                                     result={r}
                                     via={searchedVia || via}
                                     onImport={handleImport}
                                     importing={importingId === r.id}
-                                    imported={importedIds.has(r.id)}
+                                    imported={false}
                                     mapillaryToken={mapillaryToken}
                                     isHovered={hoveredId === r.id}
                                     onHoverStart={() => setHoveredId(r.id)}
                                     onHoverEnd={() => setHoveredId(null)}
                                 />
                             ))
+                        ) : results.length > 0 ? (
+                            <div style={{ textAlign: 'center', padding: '3rem 2rem', color: '#16a34a', fontWeight: 600 }}>
+                                ✅ Tutti i segnali trovati sono stati importati nel Catasto.
+                            </div>
                         ) : (
                             <div style={{ textAlign: 'center', padding: '3rem 2rem', color: 'var(--gray-600)' }}>
                                 Nessun segnale catalogato dalla community trovato in questa zona.
