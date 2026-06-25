@@ -211,6 +211,7 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                 <MapContainer
                     center={defaultCenter}
                     zoom={defaultZoom}
+                    maxZoom={20}
                     style={{ height: '100%', width: '100%' }}
                     scrollWheelZoom={true}
                 >
@@ -221,6 +222,8 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                             <TileLayer
                                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                maxZoom={20}
+                                maxNativeZoom={19}
                             />
                         </LayersControl.BaseLayer>
 
@@ -228,6 +231,8 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                             <TileLayer
                                 attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
                                 url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                maxZoom={20}
+                                maxNativeZoom={19}
                             />
                         </LayersControl.BaseLayer>
 
@@ -235,6 +240,8 @@ function MapView({ signs, onSignClick, onOpenDetails }) {
                             <TileLayer
                                 attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>'
                                 url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+                                maxZoom={20}
+                                maxNativeZoom={17}
                             />
                         </LayersControl.BaseLayer>
 
